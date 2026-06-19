@@ -11,6 +11,8 @@ type Config struct {
 	LogLevel      string
 	ServerPort    string
 	PublicKeyPath string
+	RoutesPath    string
+	Routes        []RouteConfig
 }
 
 func Load() (Config, error) {
@@ -26,9 +28,18 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("failed to load env variables: %w", err)
 	}
 
+	routesPath := env.GetOr("ROUTES_PATH", "./config/routes.yaml")
+
+	routes, err := loadRoutes(routesPath)
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to load routes: %w", err)
+	}
+
 	return Config{
 		LogLevel:      env.GetOr("LOG_LEVEL", "INFO"),
 		ServerPort:    serverPort,
 		PublicKeyPath: pubKeyPath,
+		RoutesPath:    routesPath,
+		Routes:        routes,
 	}, nil
 }
