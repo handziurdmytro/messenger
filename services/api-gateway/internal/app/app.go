@@ -1,18 +1,19 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"os"
 
+	"github.com/handziurdmytro/messenger/api-gateway/internal/adapter/inbound/rest"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/config"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/proxy"
 )
 
 type App struct {
-	Authenticator *auth.Authenticator
-	Router        *proxy.Router
-	Config        config.Config
+	server *rest.Server
+	config config.Config
 }
 
 func New() (*App, error) {
@@ -43,10 +44,18 @@ func New() (*App, error) {
 	}
 
 	router := proxy.NewRouter(routes)
+	server := rest.NewServer(cfg.ServerPort, router, authenticator)
 
 	return &App{
-		Authenticator: authenticator,
-		Router:        router,
-		Config:        cfg,
+		server: server,
+		config: cfg,
 	}, nil
+}
+
+func (a *App) Start() error {
+	return a.server.Start()
+}
+
+func (a *App) Shutdown(ctx context.Context) error {
+	return a.server.Shutdown(ctx)
 }
