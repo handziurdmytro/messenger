@@ -11,6 +11,12 @@ routes:
     strip_prefix: true
     auth_required: true
 
+  - id: chat-ws
+    prefix: /ws/chat
+    target: http://chat-service:3232
+    strip_prefix: false
+    auth_required: true
+
   - id: users
     prefix: /api/users
     target: http://user-service:3333
