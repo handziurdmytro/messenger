@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/rest"
 	"github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/ws"
+	kafka "github.com/handziurdmytro/messenger/chat-service/internal/adapter/outbound/kafka"
 	"github.com/handziurdmytro/messenger/chat-service/internal/config"
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
 )
@@ -15,6 +17,7 @@ import (
 type App struct {
 	wsServer   *ws.Server
 	restServer *rest.Server
+	publisher  *kafka.MessagePublisher
 }
 
 func New() (*App, error) {
@@ -25,9 +28,15 @@ func New() (*App, error) {
 
 	hub := chat.NewHub()
 
+	publisher := kafka.NewMessagePublisher(
+		strings.Split(cfg.KafkaBrokers, ","),
+		cfg.KafkaTopic,
+	)
+
 	return &App{
-		wsServer:   ws.NewServer(cfg.WSPort, hub),
+		wsServer:   ws.NewServer(cfg.WSPort, hub, publisher),
 		restServer: rest.NewServer(cfg.RESTPort, hub),
+		publisher:  publisher,
 	}, nil
 }
 
@@ -52,5 +61,6 @@ func (a *App) Start() error {
 func (a *App) Shutdown(ctx context.Context) error {
 	wsErr := a.wsServer.Shutdown(ctx)
 	restErr := a.restServer.Shutdown(ctx)
-	return errors.Join(wsErr, restErr)
+	pubErr := a.publisher.Close()
+	return errors.Join(wsErr, restErr, pubErr)
 }
