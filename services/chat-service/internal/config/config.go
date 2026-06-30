@@ -8,9 +8,11 @@ import (
 )
 
 type Config struct {
-	WSPort   string
-	RESTPort string
-	LogLevel string
+	WSPort       string
+	RESTPort     string
+	LogLevel     string
+	KafkaBrokers string
+	KafkaTopic   string
 }
 
 func Load() (Config, error) {
@@ -26,9 +28,21 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("failed to load env: %w", err)
 	}
 
+	kafkaBrokers, err := env.Get("KAFKA_BROKERS")
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to load env: %w", err)
+	}
+
+	kafkaTopic, err := env.Get("KAFKA_TOPIC")
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to load env: %w", err)
+	}
+
 	return Config{
-		WSPort:   wsPort,
-		RESTPort: restPort,
-		LogLevel: env.GetOr("LOG_LEVEL", "INFO"),
+		WSPort:       wsPort,
+		RESTPort:     restPort,
+		LogLevel:     env.GetOr("LOG_LEVEL", "INFO"),
+		KafkaBrokers: kafkaBrokers,
+		KafkaTopic:   kafkaTopic,
 	}, nil
 }
