@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
+	"github.com/handziurdmytro/messenger/chat-service/internal/port/outbound"
 )
 
 type Server struct {
 	http *http.Server
 }
 
-func NewServer(port string, hub *chat.Hub) *Server {
-	handler := NewHandler(hub)
+func NewServer(port string, hub *chat.Hub, pub outbound.MessagePublisher) *Server {
+	handler := NewHandler(hub, pub)
 
 	mux := http.NewServeMux()
 	mux.Handle("/ws", handler)

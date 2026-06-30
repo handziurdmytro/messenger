@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
+	"github.com/handziurdmytro/messenger/chat-service/internal/port/outbound"
 )
 
 const (
@@ -25,11 +27,15 @@ var upgrader = websocket.Upgrader{
 }
 
 type Handler struct {
-	hub *chat.Hub
+	hub       *chat.Hub
+	publisher outbound.MessagePublisher
 }
 
-func NewHandler(hub *chat.Hub) *Handler {
-	return &Handler{hub: hub}
+func NewHandler(hub *chat.Hub, publisher outbound.MessagePublisher) *Handler {
+	return &Handler{
+		hub:       hub,
+		publisher: publisher,
+	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +101,18 @@ func (h *Handler) readPump(conn *websocket.Conn, client *chat.Client) {
 
 		if err = h.hub.Publish(msg); err != nil {
 			slog.Error("ws: publish failed", "error", err)
+			continue
 		}
+
+		go func(m chat.Message) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err = h.publisher.Publish(ctx, m); err != nil {
+				slog.Error("kafka: publish failed", "error", err)
+				// TODO: dead letter queue or retry
+			}
+		}(msg)
 	}
 }
 
