@@ -75,3 +75,25 @@ func (h *Hub) CreateRoom(id RoomID) error {
 	h.rooms[id] = newRoom(id)
 	return nil
 }
+
+func (h *Hub) Confirm(userID string, msg Message) error {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	room, ok := h.rooms[msg.RoomID]
+	if !ok {
+		return ErrRoomNotFound
+	}
+
+	client, ok := room.clients[ClientID(userID)]
+	if !ok {
+		return nil
+	}
+
+	select {
+	case client.send <- msg:
+	default:
+	}
+
+	return nil
+}
