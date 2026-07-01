@@ -5,8 +5,9 @@ import "time"
 type MessageType string
 
 const (
-	MessageTypeText   MessageType = "text"
-	MessageTypeSystem MessageType = "system"
+	MessageTypeText    MessageType = "text"
+	MessageTypeSystem  MessageType = "system"
+	MessageTypeConfirm MessageType = "confirm"
 )
 
 type Message struct {
