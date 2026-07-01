@@ -7,17 +7,19 @@ import (
 	"net/http"
 	"strings"
 
+	kafkainbound "github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/kafka"
 	"github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/rest"
 	"github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/ws"
-	kafka "github.com/handziurdmytro/messenger/chat-service/internal/adapter/outbound/kafka"
+	kafkaoutbound "github.com/handziurdmytro/messenger/chat-service/internal/adapter/outbound/kafka"
 	"github.com/handziurdmytro/messenger/chat-service/internal/config"
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
 )
 
 type App struct {
-	wsServer   *ws.Server
-	restServer *rest.Server
-	publisher  *kafka.MessagePublisher
+	wsServer          *ws.Server
+	restServer        *rest.Server
+	sentPublisher     *kafkaoutbound.MessagePublisher
+	persistedConsumer *kafkainbound.PersistedConsumer
 }
 
 func New() (*App, error) {
@@ -26,22 +28,28 @@ func New() (*App, error) {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
+	brokers := strings.Split(cfg.KafkaBrokers, ",")
 	hub := chat.NewHub()
 
-	publisher := kafka.NewMessagePublisher(
-		strings.Split(cfg.KafkaBrokers, ","),
-		cfg.KafkaTopic,
+	sentPublisher := kafkaoutbound.NewMessagePublisher(brokers, cfg.KafkaOutTopic)
+
+	persistedConsumer := kafkainbound.NewPersistedConsumer(
+		brokers,
+		cfg.KafkaInTopic,
+		cfg.KafkaGroupID,
+		hub,
 	)
 
 	return &App{
-		wsServer:   ws.NewServer(cfg.WSPort, hub, publisher),
-		restServer: rest.NewServer(cfg.RESTPort, hub),
-		publisher:  publisher,
+		wsServer:          ws.NewServer(cfg.WSPort, hub, sentPublisher),
+		restServer:        rest.NewServer(cfg.RESTPort, hub),
+		sentPublisher:     sentPublisher,
+		persistedConsumer: persistedConsumer,
 	}, nil
 }
 
-func (a *App) Start() error {
-	errch := make(chan error, 2)
+func (a *App) Start(ctx context.Context) error {
+	errch := make(chan error, 3)
 
 	go func() {
 		if err := a.wsServer.Start(); !errors.Is(err, http.ErrServerClosed) {
@@ -55,12 +63,20 @@ func (a *App) Start() error {
 		}
 	}()
 
+	go func() {
+		if err := a.persistedConsumer.Start(ctx); err != nil {
+			errch <- fmt.Errorf("persisted consumer: %w", err)
+		}
+	}()
+
 	return <-errch
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
-	wsErr := a.wsServer.Shutdown(ctx)
-	restErr := a.restServer.Shutdown(ctx)
-	pubErr := a.publisher.Close()
-	return errors.Join(wsErr, restErr, pubErr)
+	return errors.Join(
+		a.wsServer.Shutdown(ctx),
+		a.restServer.Shutdown(ctx),
+		a.sentPublisher.Close(),
+		a.persistedConsumer.Close(),
+	)
 }
