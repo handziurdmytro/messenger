@@ -8,11 +8,13 @@ import (
 )
 
 type Config struct {
-	WSPort       string
-	RESTPort     string
-	LogLevel     string
-	KafkaBrokers string
-	KafkaTopic   string
+	WSPort        string
+	RESTPort      string
+	LogLevel      string
+	KafkaBrokers  string
+	KafkaInTopic  string
+	KafkaOutTopic string
+	KafkaGroupID  string
 }
 
 func Load() (Config, error) {
@@ -33,16 +35,28 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("failed to load env: %w", err)
 	}
 
-	kafkaTopic, err := env.Get("KAFKA_TOPIC")
+	kafkaInTopic, err := env.Get("KAFKA_IN_TOPIC")
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to load env: %w", err)
+	}
+
+	kafkaOutTopic, err := env.Get("KAFKA_OUT_TOPIC")
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to load env: %w", err)
+	}
+
+	kafkaGroupID, err := env.Get("KAFKA_GROUP_ID")
 	if err != nil {
 		return Config{}, fmt.Errorf("failed to load env: %w", err)
 	}
 
 	return Config{
-		WSPort:       wsPort,
-		RESTPort:     restPort,
-		LogLevel:     env.GetOr("LOG_LEVEL", "INFO"),
-		KafkaBrokers: kafkaBrokers,
-		KafkaTopic:   kafkaTopic,
+		WSPort:        wsPort,
+		RESTPort:      restPort,
+		LogLevel:      env.GetOr("LOG_LEVEL", "INFO"),
+		KafkaBrokers:  kafkaBrokers,
+		KafkaInTopic:  kafkaInTopic,
+		KafkaOutTopic: kafkaOutTopic,
+		KafkaGroupID:  kafkaGroupID,
 	}, nil
 }
