@@ -8,11 +8,11 @@ import (
 )
 
 type Config struct {
-	LogLevel      string
-	ServerPort    string
-	PublicKeyPath string
-	RoutesPath    string
-	Routes        []RouteConfig
+	LogLevel       string
+	ServerPort     string
+	AuthServiceURL string
+	RoutesPath     string
+	Routes         []RouteConfig
 }
 
 func Load() (Config, error) {
@@ -23,7 +23,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("failed to load env variables: %w", err)
 	}
 
-	pubKeyPath, err := env.Get("PUBLIC_KEY_PATH")
+	authServiceURL, err := env.Get("AUTH_SERVICE_URL")
 	if err != nil {
 		return Config{}, fmt.Errorf("failed to load env variables: %w", err)
 	}
@@ -36,10 +36,10 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		LogLevel:      env.GetOr("LOG_LEVEL", "INFO"),
-		ServerPort:    serverPort,
-		PublicKeyPath: pubKeyPath,
-		RoutesPath:    routesPath,
-		Routes:        routes,
+		LogLevel:       env.GetOr("LOG_LEVEL", "INFO"),
+		ServerPort:     serverPort,
+		AuthServiceURL: authServiceURL,
+		RoutesPath:     routesPath,
+		Routes:         routes,
 	}, nil
 }
