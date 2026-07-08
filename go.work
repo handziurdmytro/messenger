@@ -6,4 +6,5 @@ use (
 	./services/auth-service
 	./services/chat-service
 	./services/message-service
+	./services/user-service
 )
