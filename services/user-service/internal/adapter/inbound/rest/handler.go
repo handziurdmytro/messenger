@@ -50,7 +50,7 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.getProfile.Execute(r.Context(), user.UserID(userID))
+	u, err := h.getProfile.Execute(r.Context(), user.ID(userID))
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
@@ -79,7 +79,7 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.updateProfile.Execute(r.Context(), user.UserID(userID), user.UpdateInput{
+	u, err := h.updateProfile.Execute(r.Context(), user.ID(userID), user.UpdateInput{
 		DisplayName: req.DisplayName,
 		AvatarURL:   req.AvatarURL,
 	})
