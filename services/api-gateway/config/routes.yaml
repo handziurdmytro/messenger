@@ -1,24 +1,24 @@
 routes:
   - id: auth
     prefix: /api/auth
-    target: http://auth-service:3131
+    target: http://auth-service:2902
     strip_prefix: true
     auth_required: false
 
   - id: chat
     prefix: /api/chat
-    target: http://chat-service:3232
+    target: http://chat-service:2904
     strip_prefix: true
     auth_required: true
 
   - id: chat-ws
     prefix: /ws/chat
-    target: http://chat-service:3232
+    target: http://chat-service:2905
     strip_prefix: false
     auth_required: true
 
   - id: users
     prefix: /api/users
-    target: http://user-service:3333
+    target: http://user-service:2903
     strip_prefix: true
     auth_required: true
