@@ -28,7 +28,7 @@ func main() {
 
 	go func() {
 		slog.Info("starting application servers...")
-		if err := application.Start(); err != nil {
+		if err = application.Start(context.Background()); err != nil {
 			errChan <- err
 		}
 	}()
