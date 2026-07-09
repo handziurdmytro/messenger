@@ -1,0 +1,196 @@
+name: messenger
+
+networks:
+  messenger-net:
+    driver: bridge
+
+volumes:
+  postgres-auth-data:
+  postgres-user-data:
+  scylla-data:
+  kafka-data:
+
+services:
+  postgres-auth:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-auth-data:/var/lib/postgresql/data
+    networks: [messenger-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-user:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: users
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+    networks: [messenger-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  scylla:
+    image: scylladb/scylla:6.0
+    command: --smp 1 --memory 750M --overprovisioned 1
+    volumes:
+      - scylla-data:/var/lib/scylla
+    networks: [messenger-net]
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe keyspaces' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:3.9.0
+    environment:
+      KAFKA_NODE_ID: 0
+      KAFKA_PROCESS_ROLES: controller,broker
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks: [ messenger-net ]
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka-init:
+    image: apache/kafka:3.9.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: [ messenger-net ]
+    volumes:
+      - ./scripts/init-kafka.sh:/init-kafka.sh
+    entrypoint: [ "/bin/sh", "/init-kafka.sh" ]
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: api-gateway
+    depends_on:
+      auth-service:
+        condition: service_started
+    ports:
+      - "2901:2901"
+    environment:
+      SERVER_PORT: 2901
+      AUTH_SERVICE_URL: http://auth-service:2902
+      ROUTES_PATH: /config/routes.yaml
+      LOG_LEVEL: INFO
+    volumes:
+      - ./services/api-gateway/config:/config
+    networks: [messenger-net]
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: auth-service
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    ports:
+      - "2902:2902"
+    environment:
+      SERVER_PORT: 2902
+      POSTGRES_DSN: postgres://postgres:postgres@postgres-auth:5432/auth?sslmode=disable
+      PRIVATE_KEY_PATH: /keys/private.pem
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: user.created
+      ACCESS_TTL_MINUTES: 15
+      REFRESH_TTL_DAYS: 30
+      LOG_LEVEL: INFO
+    volumes:
+      - ./services/auth-service/keys:/keys
+    networks: [messenger-net]
+
+  user-service:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: user-service
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    ports:
+      - "2903:2903"
+    environment:
+      SERVER_PORT: 2903
+      POSTGRES_DSN: postgres://postgres:postgres@postgres-user:5432/users?sslmode=disable
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: user.created
+      KAFKA_GROUP_ID: user-service
+      LOG_LEVEL: INFO
+    networks: [messenger-net]
+
+  chat-service:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: chat-service
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    ports:
+      - "2904:2904"
+      - "2905:2905"
+    environment:
+      REST_PORT: 2904
+      WS_PORT: 2905
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_OUT_TOPIC: message.sent
+      KAFKA_IN_TOPIC: message.persisted
+      KAFKA_GROUP_ID: chat-service
+      LOG_LEVEL: INFO
+    networks: [messenger-net]
+
+  message-service:
+    build:
+      context: .
+      dockerfile: build/Dockerfile
+      args:
+        SERVICE: message-service
+    depends_on:
+      scylla:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_IN_TOPIC: message.sent
+      KAFKA_OUT_TOPIC: message.persisted
+      KAFKA_GROUP_ID: message-service
+      SCYLLA_HOSTS: scylla:9042
+      LOG_LEVEL: INFO
+    networks: [messenger-net]
