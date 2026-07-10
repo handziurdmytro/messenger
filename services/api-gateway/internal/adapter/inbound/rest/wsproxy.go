@@ -3,13 +3,13 @@ package rest
 import (
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"strings"
 
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/proxy"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type WSProxyHandler struct {
@@ -25,7 +25,10 @@ func NewWSProxyHandler(router *proxy.Router, authenticator *auth.Authenticator) 
 }
 
 func (h *WSProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log := logger.FromContext(r.Context())
+
 	if !isWebSocketRequest(r) {
+		log.Warn("ws: not a websocket upgrade request", "path", r.URL.Path)
 		writeError(w, http.StatusBadRequest, "expected websocket upgrade")
 		return
 	}
@@ -34,43 +37,53 @@ func (h *WSProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	decision, err := h.router.Route(req)
 	if err != nil {
+		log.Warn("ws: routing failed", "path", r.URL.Path, "error", err)
 		h.handleRouteError(w, err)
 		return
 	}
 
+	log.Info("ws: routed", "path", r.URL.Path, "target", decision.TargetURL)
 	h.tunnel(w, r, decision)
 }
 
 func (h *WSProxyHandler) tunnel(w http.ResponseWriter, r *http.Request, decision proxy.Decision) {
+	log := logger.FromContext(r.Context())
+
 	upstreamAddr := targetToAddr(decision.TargetURL)
 	upstreamConn, err := net.Dial("tcp", upstreamAddr)
 	if err != nil {
+		log.Error("ws: dial upstream failed", "upstream", upstreamAddr, "error", err)
 		writeError(w, http.StatusBadGateway, fmt.Sprintf("upstream unavailable: %v", err))
 		return
 	}
 	defer upstreamConn.Close()
+	log.Debug("ws: dialed upstream", "upstream", upstreamAddr)
 
 	for k, v := range decision.ForwardHeaders {
 		r.Header.Set(k, v)
 	}
 
 	if err = r.Write(upstreamConn); err != nil {
+		log.Error("ws: failed to forward upgrade request", "upstream", upstreamAddr, "error", err)
 		writeError(w, http.StatusBadGateway, "failed to forward upgrade request")
 		return
 	}
 
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
+		log.Error("ws: hijacking not supported")
 		writeError(w, http.StatusInternalServerError, "hijacking not supported")
 		return
 	}
 
 	clientConn, _, err := hijacker.Hijack()
 	if err != nil {
-		slog.Error("ws: hijack failed", "error", err)
+		log.Error("ws: hijack failed", "error", err)
 		return
 	}
 	defer clientConn.Close()
+
+	log.Info("ws: tunnel established", "upstream", upstreamAddr)
 
 	errc := make(chan error, 2)
 
@@ -85,7 +98,7 @@ func (h *WSProxyHandler) tunnel(w http.ResponseWriter, r *http.Request, decision
 	}()
 
 	if err = <-errc; err != nil {
-		slog.Error("ws: tunnel closed", "error", err)
+		log.Info("ws: tunnel closed", "upstream", upstreamAddr, "reason", err)
 	}
 }
 

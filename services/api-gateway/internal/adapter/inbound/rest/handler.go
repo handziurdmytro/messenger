@@ -8,6 +8,7 @@ import (
 
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/proxy"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type Handler struct {
@@ -23,14 +24,17 @@ func NewHandler(router *proxy.Router, authenticator *auth.Authenticator) *Handle
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log := logger.FromContext(r.Context())
 	req := h.buildRequest(r)
 
 	decision, err := h.router.Route(req)
 	if err != nil {
+		log.Warn("gateway: routing failed", "path", r.URL.Path, "error", err)
 		h.handleRouteError(w, err)
 		return
 	}
 
+	log.Info("gateway: routed", "path", r.URL.Path, "target", decision.TargetURL, "rewrite_path", decision.RewritePath)
 	h.proxy(w, r, decision)
 }
 
@@ -52,8 +56,11 @@ func (h *Handler) buildRequest(r *http.Request) proxy.Request {
 }
 
 func (h *Handler) proxy(w http.ResponseWriter, r *http.Request, decision proxy.Decision) {
+	log := logger.FromContext(r.Context())
+
 	target, err := url.Parse(decision.TargetURL)
 	if err != nil {
+		log.Error("gateway: invalid target url", "target", decision.TargetURL, "error", err)
 		writeError(w, http.StatusBadGateway, "invalid target")
 		return
 	}
@@ -71,6 +78,7 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request, decision proxy.D
 			}
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			log.Error("gateway: upstream error", "target", target.String(), "error", err)
 			writeError(w, http.StatusBadGateway, fmt.Sprintf("upstream error: %v", err))
 		},
 	}

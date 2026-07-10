@@ -3,18 +3,20 @@ package rest
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/proxy"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type Server struct {
 	http *http.Server
 }
 
-func NewServer(port string, router *proxy.Router, authenticator *auth.Authenticator) *Server {
+func NewServer(port string, router *proxy.Router, authenticator *auth.Authenticator, base *slog.Logger) *Server {
 	httpHandler := NewHandler(router, authenticator)
 	wsHandler := NewWSProxyHandler(router, authenticator)
 
@@ -24,7 +26,8 @@ func NewServer(port string, router *proxy.Router, authenticator *auth.Authentica
 	mux.Handle("/ws/", authed(wsHandler))
 	mux.Handle("/", authed(httpHandler))
 
-	handlerWithCORS := corsMiddleware(mux)
+	handlerWithLogger := logger.HTTPMiddleware(base)(mux)
+	handlerWithCORS := corsMiddleware(handlerWithLogger)
 
 	return &Server{
 		http: &http.Server{
