@@ -10,6 +10,7 @@ import (
 	"github.com/handziurdmytro/messenger/api-gateway/internal/config"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/proxy"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type App struct {
@@ -22,6 +23,8 @@ func New() (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
+
+	baseLogger := logger.New("api-gateway", cfg.LogLevel)
 
 	keyProvider := authclient.NewHTTPClient(cfg.AuthServiceURL)
 
@@ -47,7 +50,7 @@ func New() (*App, error) {
 	}
 
 	router := proxy.NewRouter(routes)
-	server := rest.NewServer(cfg.ServerPort, router, authenticator)
+	server := rest.NewServer(cfg.ServerPort, router, authenticator, baseLogger)
 
 	return &App{server: server, config: cfg}, nil
 }
