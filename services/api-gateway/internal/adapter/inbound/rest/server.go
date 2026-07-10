@@ -24,10 +24,12 @@ func NewServer(port string, router *proxy.Router, authenticator *auth.Authentica
 	mux.Handle("/ws/", authed(wsHandler))
 	mux.Handle("/", authed(httpHandler))
 
+	handlerWithCORS := corsMiddleware(mux)
+
 	return &Server{
 		http: &http.Server{
 			Addr:         fmt.Sprintf(":%s", port),
-			Handler:      mux,
+			Handler:      handlerWithCORS,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 0,
 			IdleTimeout:  60 * time.Second,
