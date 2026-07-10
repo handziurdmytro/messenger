@@ -22,3 +22,9 @@ routes:
     target: http://user-service:2903
     strip_prefix: true
     auth_required: true
+
+  - id: messages
+    prefix: /api/messages
+    target: http://message-service:2906
+    strip_prefix: true
+    auth_required: true
