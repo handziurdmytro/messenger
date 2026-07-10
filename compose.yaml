@@ -194,3 +194,12 @@ services:
       SCYLLA_HOSTS: scylla:9042
       LOG_LEVEL: INFO
     networks: [messenger-net]
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./services/api-gateway/api/swagger.yaml:/usr/share/nginx/html/swagger.yaml
+    environment:
+      URL: ./swagger.yaml
