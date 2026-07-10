@@ -53,7 +53,7 @@ func extractToken(r *http.Request) string {
 	if after, ok := strings.CutPrefix(bearer, "Bearer "); ok {
 		return after
 	}
-	return ""
+	return r.URL.Query().Get("token")
 }
 
 func identityFromContext(ctx context.Context) *auth.Identity {
