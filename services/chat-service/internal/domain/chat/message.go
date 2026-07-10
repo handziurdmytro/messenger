@@ -11,10 +11,10 @@ const (
 )
 
 type Message struct {
-	ID        string
-	RoomID    RoomID
-	FromUser  string
-	Type      MessageType
-	Body      string
-	CreatedAt time.Time
+	ID        string      `json:"id"`
+	RoomID    RoomID      `json:"room_id"`
+	FromUser  string      `json:"from_user"`
+	Type      MessageType `json:"type"`
+	Body      string      `json:"body"`
+	CreatedAt time.Time   `json:"created_at"`
 }
