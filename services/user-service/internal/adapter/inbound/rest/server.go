@@ -3,9 +3,11 @@ package rest
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/handziurdmytro/messenger/pkg/logger"
 	"github.com/handziurdmytro/messenger/user-service/internal/usecase"
 )
 
@@ -18,6 +20,7 @@ func NewServer(
 	getProfile *usecase.GetProfileUseCase,
 	updateProfile *usecase.UpdateProfileUseCase,
 	searchUsers *usecase.SearchUsersUseCase,
+	baseLogger *slog.Logger,
 ) *Server {
 	h := NewHandler(getProfile, updateProfile, searchUsers)
 
@@ -26,10 +29,12 @@ func NewServer(
 	mux.HandleFunc("PATCH /users/me", h.UpdateProfile)
 	mux.HandleFunc("GET /users/search", h.SearchUsers)
 
+	handlerWithLogger := logger.HTTPMiddleware(baseLogger)(mux)
+
 	return &Server{
 		http: &http.Server{
 			Addr:         fmt.Sprintf(":%s", port),
-			Handler:      mux,
+			Handler:      handlerWithLogger,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 10 * time.Second,
 			IdleTimeout:  60 * time.Second,

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/handziurdmytro/messenger/pkg/logger"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 	"github.com/handziurdmytro/messenger/user-service/internal/usecase"
 )
@@ -44,8 +45,11 @@ func toResponse(u user.User) userResponse {
 }
 
 func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	log := logger.WithComponent(logger.FromContext(r.Context()), "user-rest")
+
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
+		log.Warn("get_profile: missing user id")
 		writeError(w, http.StatusUnauthorized, "missing user id")
 		return
 	}
@@ -53,19 +57,25 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	u, err := h.getProfile.Execute(r.Context(), user.ID(userID))
 	if err != nil {
 		if errors.Is(err, user.ErrUserNotFound) {
+			log.Info("get_profile: not found", logger.KeyUserID, userID)
 			writeError(w, http.StatusNotFound, "user not found")
 			return
 		}
+		log.Error("get_profile: failed", logger.KeyUserID, userID, logger.KeyError, err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
+	log.Info("get_profile: succeeded", logger.KeyUserID, userID)
 	writeJSON(w, http.StatusOK, toResponse(u))
 }
 
 func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	log := logger.WithComponent(logger.FromContext(r.Context()), "user-rest")
+
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
+		log.Warn("update_profile: missing user id")
 		writeError(w, http.StatusUnauthorized, "missing user id")
 		return
 	}
@@ -75,6 +85,7 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		AvatarURL   *string `json:"avatar_url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Warn("update_profile: invalid request body", logger.KeyUserID, userID, logger.KeyError, err)
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -86,26 +97,35 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, user.ErrUserNotFound):
+			log.Info("update_profile: not found", logger.KeyUserID, userID)
 			writeError(w, http.StatusNotFound, "user not found")
 		case errors.Is(err, user.ErrDisplayNameEmpty):
+			log.Info("update_profile: display name empty", logger.KeyUserID, userID)
 			writeError(w, http.StatusBadRequest, err.Error())
 		default:
+			log.Error("update_profile: failed", logger.KeyUserID, userID, logger.KeyError, err)
 			writeError(w, http.StatusInternalServerError, "internal error")
 		}
 		return
 	}
 
+	log.Info("update_profile: succeeded", logger.KeyUserID, userID)
 	writeJSON(w, http.StatusOK, toResponse(u))
 }
 
 func (h *Handler) SearchUsers(w http.ResponseWriter, r *http.Request) {
+	log := logger.WithComponent(logger.FromContext(r.Context()), "user-rest")
+
 	query := r.URL.Query().Get("q")
 
 	users, err := h.searchUsers.Execute(r.Context(), query, 20)
 	if err != nil {
+		log.Error("search_users: failed", "query", query, logger.KeyError, err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+
+	log.Info("search_users: succeeded", "query", query, "count", len(users))
 
 	resp := make([]userResponse, len(users))
 	for i, u := range users {

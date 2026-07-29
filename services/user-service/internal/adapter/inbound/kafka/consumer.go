@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/handziurdmytro/messenger/pkg/logger"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 	"github.com/handziurdmytro/messenger/user-service/internal/port/outbound"
 	"github.com/segmentio/kafka-go"
@@ -15,9 +16,15 @@ import (
 type UserCreatedConsumer struct {
 	reader *kafka.Reader
 	users  outbound.UserRepository
+	log    *slog.Logger
 }
 
-func NewUserCreatedConsumer(brokers []string, topic, groupID string, users outbound.UserRepository) *UserCreatedConsumer {
+func NewUserCreatedConsumer(
+	brokers []string,
+	topic, groupID string,
+	users outbound.UserRepository,
+	baseLogger *slog.Logger,
+) *UserCreatedConsumer {
 	return &UserCreatedConsumer{
 		reader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers:        brokers,
@@ -28,6 +35,7 @@ func NewUserCreatedConsumer(brokers []string, topic, groupID string, users outbo
 			CommitInterval: time.Second,
 		}),
 		users: users,
+		log:   logger.WithComponent(baseLogger, "user-consumer"),
 	}
 }
 
@@ -48,11 +56,12 @@ func (c *UserCreatedConsumer) Start(ctx context.Context) error {
 		}
 
 		if err = c.handle(ctx, msg); err != nil {
-			slog.Error("user consumer: handle failed", "error", err)
+			c.log.Error("handle failed", logger.KeyError, err)
+			continue
 		}
 
 		if err = c.reader.CommitMessages(ctx, msg); err != nil {
-			slog.Error("user consumer: commit failed", "error", err)
+			c.log.Error("commit failed", logger.KeyError, err)
 		}
 	}
 }
