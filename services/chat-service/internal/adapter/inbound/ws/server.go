@@ -3,27 +3,31 @@ package ws
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
 	"github.com/handziurdmytro/messenger/chat-service/internal/port/outbound"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type Server struct {
 	http *http.Server
 }
 
-func NewServer(port string, hub *chat.Hub, pub outbound.MessagePublisher) *Server {
+func NewServer(port string, hub *chat.Hub, pub outbound.MessagePublisher, baseLogger *slog.Logger) *Server {
 	handler := NewHandler(hub, pub)
 
 	mux := http.NewServeMux()
 	mux.Handle("/ws", handler)
 
+	handlerWithLogger := logger.HTTPMiddleware(baseLogger)(mux)
+
 	return &Server{
 		http: &http.Server{
 			Addr:         fmt.Sprintf(":%s", port),
-			Handler:      mux,
+			Handler:      handlerWithLogger,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 0,
 			IdleTimeout:  60 * time.Second,
