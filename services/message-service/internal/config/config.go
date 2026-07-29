@@ -8,6 +8,7 @@ import (
 )
 
 type Config struct {
+	ServerPort    string
 	KafkaBrokers  string
 	KafkaInTopic  string
 	KafkaOutTopic string
@@ -19,6 +20,11 @@ type Config struct {
 func Load() (Config, error) {
 
 	_ = godotenv.Load()
+
+	serverPort, err := env.Get("SERVER_PORT")
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to load env: %w", err)
+	}
 
 	kafkaInTopic, err := env.Get("KAFKA_IN_TOPIC")
 	if err != nil {
@@ -46,6 +52,7 @@ func Load() (Config, error) {
 	}
 
 	return Config{
+		ServerPort:    serverPort,
 		KafkaBrokers:  kafkaBrokers,
 		KafkaGroupID:  kafkaGroupID,
 		KafkaInTopic:  kafkaInTopic,
