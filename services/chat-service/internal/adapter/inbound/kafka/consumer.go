@@ -8,15 +8,17 @@ import (
 	"time"
 
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 	"github.com/segmentio/kafka-go"
 )
 
 type PersistedConsumer struct {
 	reader *kafka.Reader
 	hub    *chat.Hub
+	log    *slog.Logger
 }
 
-func NewPersistedConsumer(brokers []string, topic, groupID string, hub *chat.Hub) *PersistedConsumer {
+func NewPersistedConsumer(brokers []string, topic, groupID string, hub *chat.Hub, baseLogger *slog.Logger) *PersistedConsumer {
 	return &PersistedConsumer{
 		reader: kafka.NewReader(kafka.ReaderConfig{
 			Brokers:        brokers,
@@ -27,6 +29,7 @@ func NewPersistedConsumer(brokers []string, topic, groupID string, hub *chat.Hub
 			CommitInterval: time.Second,
 		}),
 		hub: hub,
+		log: logger.WithComponent(baseLogger, "persisted-consumer"),
 	}
 }
 
@@ -49,12 +52,12 @@ func (c *PersistedConsumer) Start(ctx context.Context) error {
 			return fmt.Errorf("fetch message: %w", err)
 		}
 
-		if err := c.handle(ctx, kafkaMsg); err != nil {
-			slog.Error("persisted consumer: handle failed", "error", err)
+		if err = c.handle(ctx, kafkaMsg); err != nil {
+			c.log.Error("handle failed", logger.KeyError, err)
 		}
 
-		if err := c.reader.CommitMessages(ctx, kafkaMsg); err != nil {
-			slog.Error("persisted consumer: commit failed", "error", err)
+		if err = c.reader.CommitMessages(ctx, kafkaMsg); err != nil {
+			c.log.Error("commit failed", logger.KeyError, err)
 		}
 	}
 }
@@ -79,8 +82,8 @@ func (c *PersistedConsumer) handle(ctx context.Context, kafkaMsg kafka.Message) 
 		CreatedAt: createdAt,
 	}
 
-	if err := c.hub.Confirm(event.FromUser, confirm); err != nil {
-		slog.Error("persisted consumer: confirm failed", "error", err)
+	if err = c.hub.Confirm(event.FromUser, confirm); err != nil {
+		c.log.Error("confirm failed", "message_id", event.MessageID, logger.KeyError, err)
 	}
 
 	return nil
