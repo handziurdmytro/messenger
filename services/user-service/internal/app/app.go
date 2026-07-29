@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+
 	"strings"
 
 	kafkainbound "github.com/handziurdmytro/messenger/user-service/internal/adapter/inbound/kafka"
@@ -19,12 +21,7 @@ type App struct {
 	consumer *kafkainbound.UserCreatedConsumer
 }
 
-func New(ctx context.Context) (*App, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
-	}
-
+func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App, error) {
 	pool, err := postgres.NewPool(ctx, cfg.PostgresDSN)
 	if err != nil {
 		return nil, fmt.Errorf("init postgres: %w", err)
@@ -41,6 +38,7 @@ func New(ctx context.Context) (*App, error) {
 		cfg.KafkaTopic,
 		cfg.KafkaGroupID,
 		userRepo,
+		baseLogger,
 	)
 
 	server := rest.NewServer(
@@ -48,6 +46,7 @@ func New(ctx context.Context) (*App, error) {
 		usecase.NewGetProfileUseCase(userRepo),
 		usecase.NewUpdateProfileUseCase(userRepo),
 		usecase.NewSearchUsersUseCase(userRepo),
+		baseLogger,
 	)
 
 	return &App{
@@ -60,7 +59,7 @@ func (a *App) Start(ctx context.Context) error {
 	errch := make(chan error, 2)
 
 	go func() {
-		if err := a.server.Start(); !errors.Is(err, http.ErrServerClosed) {
+		if err := a.server.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errch <- fmt.Errorf("rest server: %w", err)
 		}
 	}()
@@ -71,7 +70,12 @@ func (a *App) Start(ctx context.Context) error {
 		}
 	}()
 
-	return <-errch
+	select {
+	case err := <-errch:
+		return err
+	case <-ctx.Done():
+		return nil
+	}
 }
 
 func (a *App) Shutdown(ctx context.Context) error {

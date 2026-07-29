@@ -2,45 +2,63 @@ package main
 
 import (
 	"context"
-	"errors"
-	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/handziurdmytro/messenger/pkg/logger"
 	"github.com/handziurdmytro/messenger/user-service/internal/app"
+	"github.com/handziurdmytro/messenger/user-service/internal/config"
 )
 
 func main() {
-	a, err := app.New(context.Background())
+	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to initialize app", "error", err)
+		logger.New("user-service", "INFO").Error("failed to load config", logger.KeyError, err)
+		os.Exit(1)
+	}
+
+	log := logger.New("user-service", cfg.LogLevel)
+
+	a, err := app.New(context.Background(), cfg, log)
+	if err != nil {
+		log.Error("failed to initialize app", logger.KeyError, err)
 		os.Exit(1)
 	}
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	runCtx, cancelRun := context.WithCancel(context.Background())
+
+	errChan := make(chan error, 1)
 
 	go func() {
-		if err = a.Start(context.Background()); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("failed to start server", "error", err)
-			os.Exit(1)
+		if err := a.Start(runCtx); err != nil {
+			errChan <- err
 		}
 	}()
 
-	slog.Info("server started")
-	<-quit
-	slog.Info("shutting down...")
+	log.Info("server started")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	select {
+	case err := <-errChan:
+		log.Error("application crashed", logger.KeyError, err)
+	case sig := <-quit:
+		log.Info("received shutdown signal", "signal", sig.String())
+	}
+
+	cancelRun()
+	log.Info("shutting down...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err = a.Shutdown(ctx); err != nil {
-		slog.Error("failed to shutdown server", "error", err)
+	if err = a.Shutdown(shutdownCtx); err != nil {
+		log.Error("failed to shutdown server", logger.KeyError, err)
 		os.Exit(1)
 	}
 
-	slog.Info("server stopped")
+	log.Info("server stopped")
 }
