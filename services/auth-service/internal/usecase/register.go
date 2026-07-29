@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type RegisterUseCase struct {
@@ -47,7 +47,7 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input RegisterInput) (Re
 		return RegisterOutput{}, fmt.Errorf("create user: %w", err)
 	}
 
-	if err := uc.users.Save(ctx, user); err != nil {
+	if err = uc.users.Save(ctx, user); err != nil {
 		if errors.Is(err, auth.ErrEmailTaken) {
 			return RegisterOutput{}, auth.ErrEmailTaken
 		}
@@ -59,12 +59,16 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input RegisterInput) (Re
 		return RegisterOutput{}, fmt.Errorf("issue tokens: %w", err)
 	}
 
-	if err := uc.tokens.SaveRefresh(ctx, refresh); err != nil {
+	if err = uc.tokens.SaveRefresh(ctx, refresh); err != nil {
 		return RegisterOutput{}, fmt.Errorf("save refresh: %w", err)
 	}
 
-	if err := uc.publisher.PublishUserCreated(ctx, user); err != nil {
-		slog.Error("publish user.created failed", "error", err)
+	if err = uc.publisher.PublishUserCreated(ctx, user); err != nil {
+		logger.WithComponent(logger.FromContext(ctx), "auth").Error(
+			"publish user.created failed",
+			logger.KeyUserID, user.ID,
+			logger.KeyError, err,
+		)
 	}
 
 	return RegisterOutput{
