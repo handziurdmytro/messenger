@@ -7,6 +7,7 @@ import (
 
 	"github.com/handziurdmytro/messenger/message-service/internal/domain/message"
 	"github.com/handziurdmytro/messenger/message-service/internal/port/outbound"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type Handler struct {
@@ -18,8 +19,11 @@ func NewHandler(repo outbound.MessageRepository) *Handler {
 }
 
 func (h *Handler) GetHistory(w http.ResponseWriter, r *http.Request) {
+	log := logger.WithComponent(logger.FromContext(r.Context()), "message-rest")
+
 	roomID := r.URL.Query().Get("room_id")
 	if roomID == "" {
+		log.Warn("get_history: missing room_id")
 		writeError(w, http.StatusBadRequest, "room_id is required")
 		return
 	}
@@ -39,9 +43,11 @@ func (h *Handler) GetHistory(w http.ResponseWriter, r *http.Request) {
 
 	messages, err := h.repo.GetHistory(r.Context(), q)
 	if err != nil {
+		log.Error("get_history: failed", "room_id", roomID, logger.KeyError, err)
 		writeError(w, http.StatusInternalServerError, "failed to get history")
 		return
 	}
 
+	log.Info("get_history: succeeded", "room_id", roomID, "count", len(messages))
 	writeJSON(w, http.StatusOK, messages)
 }
