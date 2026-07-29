@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -20,12 +21,7 @@ type App struct {
 	publisher *kafkaoutbound.EventPublisher
 }
 
-func New(ctx context.Context) (*App, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
-	}
-
+func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App, error) {
 	pool, err := postgres.NewPool(ctx, cfg.PostgresDSN)
 	if err != nil {
 		return nil, fmt.Errorf("init postgres: %w", err)
@@ -61,7 +57,7 @@ func New(ctx context.Context) (*App, error) {
 	loginUC := usecase.NewLoginUseCase(userRepo, tokenRepo, tokenSvc)
 	refreshUC := usecase.NewRefreshUseCase(userRepo, tokenRepo, tokenSvc)
 
-	server := rest.NewServer(cfg.ServerPort, registerUC, loginUC, refreshUC, tokenSvc)
+	server := rest.NewServer(cfg.ServerPort, registerUC, loginUC, refreshUC, tokenSvc, baseLogger)
 
 	return &App{
 		server:    server,

@@ -3,11 +3,13 @@ package rest
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/usecase"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type Server struct {
@@ -20,6 +22,7 @@ func NewServer(
 	login *usecase.LoginUseCase,
 	refresh *usecase.RefreshUseCase,
 	tokenSvc *auth.TokenService,
+	baseLogger *slog.Logger,
 ) *Server {
 	h := NewHandler(register, login, refresh, tokenSvc)
 
@@ -29,10 +32,12 @@ func NewServer(
 	mux.HandleFunc("POST /auth/refresh", h.Refresh)
 	mux.HandleFunc("GET /.well-known/jwks.pem", h.JWKS)
 
+	handler := logger.HTTPMiddleware(baseLogger)(mux)
+
 	return &Server{
 		http: &http.Server{
 			Addr:         fmt.Sprintf(":%s", port),
-			Handler:      mux,
+			Handler:      handler,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 10 * time.Second,
 			IdleTimeout:  60 * time.Second,
