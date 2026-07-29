@@ -23,7 +23,7 @@ func main() {
 
 	log := logger.New("api-gateway", cfg.LogLevel)
 
-	a, err := app.New(cfg, log)
+	a, err := app.New(context.Background(), cfg, log)
 	if err != nil {
 		log.Error("failed to initialize app", logger.KeyError, err)
 		os.Exit(1)

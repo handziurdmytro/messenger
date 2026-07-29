@@ -18,10 +18,10 @@ type App struct {
 	config config.Config
 }
 
-func New(cfg config.Config, baseLogger *slog.Logger) (*App, error) {
+func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App, error) {
 	keyProvider := authclient.NewHTTPClient(cfg.AuthServiceURL)
 
-	pubKeyPEM, err := fetchPublicKeyWithRetry(keyProvider, 5, 2*time.Second)
+	pubKeyPEM, err := fetchPublicKeyWithRetry(ctx, keyProvider, 5, 2*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("fetch public key: %w", err)
 	}
@@ -48,17 +48,22 @@ func New(cfg config.Config, baseLogger *slog.Logger) (*App, error) {
 	return &App{server: server, config: cfg}, nil
 }
 
-func fetchPublicKeyWithRetry(provider *authclient.HTTPClient, attempts int, delay time.Duration) ([]byte, error) {
+func fetchPublicKeyWithRetry(ctx context.Context, provider *authclient.HTTPClient, attempts int, delay time.Duration) ([]byte, error) {
 	var lastErr error
 	for i := 0; i < attempts; i++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		key, err := provider.FetchPublicKey(ctx)
+		attemptCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		key, err := provider.FetchPublicKey(attemptCtx)
 		cancel()
 		if err == nil {
 			return key, nil
 		}
 		lastErr = err
-		time.Sleep(delay)
+
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
 	return nil, lastErr
 }
