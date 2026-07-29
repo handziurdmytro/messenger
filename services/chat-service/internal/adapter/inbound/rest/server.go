@@ -3,26 +3,30 @@ package rest
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type Server struct {
 	http *http.Server
 }
 
-func NewServer(port string, hub *chat.Hub) *Server {
+func NewServer(port string, hub *chat.Hub, baseLogger *slog.Logger) *Server {
 	handler := NewHandler(hub)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/rooms", handler.CreateRoom)
 
+	handlerWithLogger := logger.HTTPMiddleware(baseLogger)(mux)
+
 	return &Server{
 		http: &http.Server{
 			Addr:         fmt.Sprintf(":%s", port),
-			Handler:      mux,
+			Handler:      handlerWithLogger,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 10 * time.Second,
 			IdleTimeout:  60 * time.Second,
