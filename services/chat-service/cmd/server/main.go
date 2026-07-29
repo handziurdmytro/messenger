@@ -2,53 +2,63 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/handziurdmytro/messenger/chat-service/internal/app"
+	"github.com/handziurdmytro/messenger/chat-service/internal/config"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
-	application, err := app.New()
+	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to initialize application", "error", err)
+		logger.New("chat-service", "INFO").Error("failed to load config", logger.KeyError, err)
 		os.Exit(1)
 	}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	log := logger.New("chat-service", cfg.LogLevel)
+
+	a, err := app.New(cfg, log)
+	if err != nil {
+		log.Error("failed to initialize app", logger.KeyError, err)
+		os.Exit(1)
+	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	runCtx, cancelRun := context.WithCancel(context.Background())
 
 	errChan := make(chan error, 1)
 
 	go func() {
-		slog.Info("starting application servers...")
-		if err = application.Start(context.Background()); err != nil {
+		if err := a.Start(runCtx); err != nil {
 			errChan <- err
 		}
 	}()
 
+	log.Info("server started")
+
 	select {
 	case err := <-errChan:
-		slog.Error("application emergency stop due to server error", "error", err)
-	case sig := <-stop:
-		slog.Info("received shutdown signal from OS", "signal", sig.String())
+		log.Error("application emergency stop due to server error", logger.KeyError, err)
+	case sig := <-quit:
+		log.Info("received shutdown signal", "signal", sig.String())
 	}
 
-	slog.Info("shutting down servers gracefully...")
+	cancelRun()
+	log.Info("shutting down...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err = application.Shutdown(ctx); err != nil {
-		slog.Error("failed to shutdown servers cleanly", "error", err)
+	if err = a.Shutdown(ctx); err != nil {
+		log.Error("failed to shutdown server", logger.KeyError, err)
 		os.Exit(1)
 	}
 
-	slog.Info("application stopped successfully")
+	log.Info("server stopped")
 }

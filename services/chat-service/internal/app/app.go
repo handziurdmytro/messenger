@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -22,12 +23,7 @@ type App struct {
 	persistedConsumer *kafkainbound.PersistedConsumer
 }
 
-func New() (*App, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
-	}
-
+func New(cfg config.Config, baseLogger *slog.Logger) (*App, error) {
 	brokers := strings.Split(cfg.KafkaBrokers, ",")
 	hub := chat.NewHub()
 
@@ -38,38 +34,44 @@ func New() (*App, error) {
 		cfg.KafkaInTopic,
 		cfg.KafkaGroupID,
 		hub,
+		baseLogger,
 	)
 
 	return &App{
-		wsServer:          ws.NewServer(cfg.WSPort, hub, sentPublisher),
-		restServer:        rest.NewServer(cfg.RESTPort, hub),
+		wsServer:          ws.NewServer(cfg.WSPort, hub, sentPublisher, baseLogger),
+		restServer:        rest.NewServer(cfg.RESTPort, hub, baseLogger),
 		sentPublisher:     sentPublisher,
 		persistedConsumer: persistedConsumer,
 	}, nil
 }
 
 func (a *App) Start(ctx context.Context) error {
-	errch := make(chan error, 3)
+	errCh := make(chan error, 3)
 
 	go func() {
-		if err := a.wsServer.Start(); !errors.Is(err, http.ErrServerClosed) {
-			errch <- fmt.Errorf("ws server: %w", err)
+		if err := a.wsServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("ws server: %w", err)
 		}
 	}()
 
 	go func() {
-		if err := a.restServer.Start(); !errors.Is(err, http.ErrServerClosed) {
-			errch <- fmt.Errorf("rest server: %w", err)
+		if err := a.restServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("rest server: %w", err)
 		}
 	}()
 
 	go func() {
 		if err := a.persistedConsumer.Start(ctx); err != nil {
-			errch <- fmt.Errorf("persisted consumer: %w", err)
+			errCh <- fmt.Errorf("persisted consumer: %w", err)
 		}
 	}()
 
-	return <-errch
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return nil
+	}
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
