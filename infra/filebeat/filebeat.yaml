@@ -1,0 +1,42 @@
+filebeat.inputs:
+  - type: filestream
+    id: messenger-logs
+    paths:
+      - /var/lib/docker/containers/*/*.log
+
+    parsers:
+      - container:
+          stream: all
+          format: auto
+
+processors:
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+
+  - drop_event:
+      when:
+        not:
+          equals:
+            container.labels.filebeat_collect: "true"
+
+  - decode_json_fields:
+      fields: [ "message" ]
+      target: "app"
+      overwrite_keys: true
+
+  - drop_fields:
+      when:
+        has_fields: [ "app.msg" ]
+      fields: [ "message", "agent.ephemeral_id", "agent.id", "ecs.version" ]
+      ignore_missing: true
+
+queue.mem:
+  events: 4096
+  flush.min_events: 512
+  flush.timeout: 5s
+
+output.elasticsearch:
+  hosts: [ "http://elasticsearch:9200" ]
+
+logging.level: debug
+logging.selectors: [ "autodiscover", "docker", "input", "crawler", "elasticsearch" ]
