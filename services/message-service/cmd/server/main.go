@@ -2,70 +2,63 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/handziurdmytro/messenger/message-service/internal/app"
+	"github.com/handziurdmytro/messenger/message-service/internal/config"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	slog.SetDefault(logger)
-
-	slog.Info("initializing message-service...")
-
-	application, err := app.New()
+	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to initialize app", "error", err)
+		logger.New("message-service", "INFO").Error("failed to load config", logger.KeyError, err)
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	log := logger.New("message-service", cfg.LogLevel)
+
+	a, err := app.New(cfg, log)
+	if err != nil {
+		log.Error("failed to initialize app", logger.KeyError, err)
+		os.Exit(1)
+	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	runCtx, cancelRun := context.WithCancel(context.Background())
 
 	errChan := make(chan error, 1)
 
 	go func() {
-		slog.Info("starting application consumers and servers...")
-		if err := application.Start(ctx); err != nil {
+		if err := a.Start(runCtx); err != nil {
 			errChan <- err
 		}
 	}()
 
-	stopChan := make(chan os.Signal, 1)
-	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
+	log.Info("server started")
 
 	select {
 	case err := <-errChan:
-		slog.Error("application crashed", "error", err)
-	case sig := <-stopChan:
-		slog.Info("received shutdown signal", "signal", sig.String())
+		log.Error("application crashed", logger.KeyError, err)
+	case sig := <-quit:
+		log.Info("received shutdown signal", "signal", sig.String())
 	}
 
-	slog.Info("initiating graceful shutdown...")
+	cancelRun()
+	log.Info("shutting down...")
 
-	cancel()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-
-	done := make(chan struct{})
-	go func() {
-		if err := application.Shutdown(); err != nil {
-			slog.Error("error during app shutdown", "error", err)
-		}
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		slog.Info("application successfully stopped")
-	case <-shutdownCtx.Done():
-		slog.Warn("shutdown timeout exceeded, forcing exit")
+	if err = a.Shutdown(shutdownCtx); err != nil {
+		log.Error("failed to shutdown server", logger.KeyError, err)
+		os.Exit(1)
 	}
+
+	log.Info("server stopped")
 }
