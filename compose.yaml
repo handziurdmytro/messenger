@@ -9,6 +9,7 @@ volumes:
   postgres-user-data:
   scylla-data:
   kafka-data:
+  elasticsearch-data:
 
 services:
   postgres-auth:
@@ -19,9 +20,9 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres-auth-data:/var/lib/postgresql/data
-    networks: [messenger-net]
+    networks: [ messenger-net ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -34,9 +35,9 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres-user-data:/var/lib/postgresql/data
-    networks: [messenger-net]
+    networks: [ messenger-net ]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -46,9 +47,9 @@ services:
     command: --smp 1 --memory 750M --overprovisioned 1
     volumes:
       - scylla-data:/var/lib/scylla
-    networks: [messenger-net]
+    networks: [ messenger-net ]
     healthcheck:
-      test: ["CMD-SHELL", "cqlsh -e 'describe keyspaces' || exit 1"]
+      test: [ "CMD-SHELL", "cqlsh -e 'describe keyspaces' || exit 1" ]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -103,7 +104,9 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - ./services/api-gateway/config:/config
-    networks: [messenger-net]
+    networks: [ messenger-net ]
+    labels:
+      - "filebeat_collect=true"
 
   auth-service:
     build:
@@ -129,7 +132,9 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - ./services/auth-service/keys:/keys
-    networks: [messenger-net]
+    networks: [ messenger-net ]
+    labels:
+      - "filebeat_collect=true"
 
   user-service:
     build:
@@ -151,7 +156,9 @@ services:
       KAFKA_TOPIC: user.created
       KAFKA_GROUP_ID: user-service
       LOG_LEVEL: INFO
-    networks: [messenger-net]
+    networks: [ messenger-net ]
+    labels:
+      - "filebeat_collect=true"
 
   chat-service:
     build:
@@ -173,7 +180,9 @@ services:
       KAFKA_IN_TOPIC: message.persisted
       KAFKA_GROUP_ID: chat-service
       LOG_LEVEL: INFO
-    networks: [messenger-net]
+    networks: [ messenger-net ]
+    labels:
+      - "filebeat_collect=true"
 
   message-service:
     build:
@@ -187,13 +196,16 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      SERVER_PORT: 2906
       KAFKA_BROKERS: kafka:9092
       KAFKA_IN_TOPIC: message.sent
       KAFKA_OUT_TOPIC: message.persisted
       KAFKA_GROUP_ID: message-service
       SCYLLA_HOSTS: scylla:9042
       LOG_LEVEL: INFO
-    networks: [messenger-net]
+    networks: [ messenger-net ]
+    labels:
+      - "filebeat_collect=true"
 
   swagger-ui:
     image: swaggerapi/swagger-ui
@@ -203,3 +215,46 @@ services:
       - ./services/api-gateway/api/swagger.yaml:/usr/share/nginx/html/swagger.yaml
     environment:
       URL: ./swagger.yaml
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks: [ messenger-net ]
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks: [ messenger-net ]
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.15.0
+    user: root
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ES_PASSWORD: secretsecret
+    volumes:
+      - ./infra/filebeat/filebeat.yaml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks: [ messenger-net ]
+    command: [ "-e", "--strict.perms=false" ]
