@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/handziurdmytro/messenger/api-gateway/internal/adapter/inbound/rest"
@@ -10,7 +11,6 @@ import (
 	"github.com/handziurdmytro/messenger/api-gateway/internal/config"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/domain/proxy"
-	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type App struct {
@@ -18,14 +18,7 @@ type App struct {
 	config config.Config
 }
 
-func New() (*App, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
-	}
-
-	baseLogger := logger.New("api-gateway", cfg.LogLevel)
-
+func New(cfg config.Config, baseLogger *slog.Logger) (*App, error) {
 	keyProvider := authclient.NewHTTPClient(cfg.AuthServiceURL)
 
 	pubKeyPEM, err := fetchPublicKeyWithRetry(keyProvider, 5, 2*time.Second)

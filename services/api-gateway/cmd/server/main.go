@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,12 +10,22 @@ import (
 	"time"
 
 	"github.com/handziurdmytro/messenger/api-gateway/internal/app"
+	"github.com/handziurdmytro/messenger/api-gateway/internal/config"
+	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 func main() {
-	a, err := app.New()
+	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to initialize app", "error", err)
+		logger.New("api-gateway", "INFO").Error("failed to load config", logger.KeyError, err)
+		os.Exit(1)
+	}
+
+	log := logger.New("api-gateway", cfg.LogLevel)
+
+	a, err := app.New(cfg, log)
+	if err != nil {
+		log.Error("failed to initialize app", logger.KeyError, err)
 		os.Exit(1)
 	}
 
@@ -24,23 +33,23 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		if err = a.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("failed to start server", "error", err)
+		if err := a.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("failed to start server", logger.KeyError, err)
 			os.Exit(1)
 		}
 	}()
 
-	slog.Info("server started")
+	log.Info("server started")
 	<-quit
-	slog.Info("shutting down...")
+	log.Info("shutting down...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err = a.Shutdown(ctx); err != nil {
-		slog.Error("failed to shutdown server", "error", err)
+	if err := a.Shutdown(ctx); err != nil {
+		log.Error("failed to shutdown server", logger.KeyError, err)
 		os.Exit(1)
 	}
 
-	slog.Info("server stopped")
+	log.Info("server stopped")
 }
