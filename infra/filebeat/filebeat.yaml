@@ -37,6 +37,11 @@ queue.mem:
 
 output.elasticsearch:
   hosts: [ "http://elasticsearch:9200" ]
+  index: "messenger-logs-%{+yyyy.MM.dd}"
+
+setup.template.name: "messenger-logs"
+setup.template.pattern: "messenger-logs-*"
+setup.ilm.enabled: false
 
 logging.level: debug
 logging.selectors: [ "autodiscover", "docker", "input", "crawler", "elasticsearch" ]
