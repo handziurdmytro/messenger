@@ -10,6 +10,7 @@ volumes:
   scylla-data:
   kafka-data:
   elasticsearch-data:
+  filebeat-data:
 
 services:
   postgres-auth:
@@ -244,6 +245,16 @@ services:
       - "5601:5601"
     networks: [ messenger-net ]
 
+  kibana-init:
+    image: curlimages/curl:8.9.1
+    depends_on:
+      kibana:
+        condition: service_started
+    networks: [ messenger-net ]
+    volumes:
+      - ./scripts/init-kibana.sh:/init-kibana.sh:ro
+    entrypoint: [ "/bin/sh", "/init-kibana.sh" ]
+
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.15.0
     user: root
@@ -256,5 +267,6 @@ services:
       - ./infra/filebeat/filebeat.yaml:/usr/share/filebeat/filebeat.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - filebeat-data:/usr/share/filebeat/data
     networks: [ messenger-net ]
     command: [ "-e", "--strict.perms=false" ]
