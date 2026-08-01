@@ -9,8 +9,8 @@ volumes:
   postgres-user-data:
   scylla-data:
   kafka-data:
-  elasticsearch-data:
-  filebeat-data:
+  grafana-data:
+  loki-data:
 
 services:
   postgres-auth:
@@ -107,7 +107,7 @@ services:
       - ./services/api-gateway/config:/config
     networks: [ messenger-net ]
     labels:
-      - "filebeat_collect=true"
+      - "logs.sink=operational"
 
   auth-service:
     build:
@@ -135,7 +135,7 @@ services:
       - ./services/auth-service/keys:/keys
     networks: [ messenger-net ]
     labels:
-      - "filebeat_collect=true"
+      - "logs.sink=operational,security"
 
   user-service:
     build:
@@ -159,7 +159,7 @@ services:
       LOG_LEVEL: INFO
     networks: [ messenger-net ]
     labels:
-      - "filebeat_collect=true"
+      - "logs.sink=operational"
 
   chat-service:
     build:
@@ -183,7 +183,7 @@ services:
       LOG_LEVEL: INFO
     networks: [ messenger-net ]
     labels:
-      - "filebeat_collect=true"
+      - "logs.sink=operational"
 
   message-service:
     build:
@@ -206,7 +206,7 @@ services:
       LOG_LEVEL: INFO
     networks: [ messenger-net ]
     labels:
-      - "filebeat_collect=true"
+      - "logs.sink=operational"
 
   swagger-ui:
     image: swaggerapi/swagger-ui
@@ -217,56 +217,45 @@ services:
     environment:
       URL: ./swagger.yaml
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+  loki:
+    image: grafana/loki:3.2.0
     volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
+      - ./infra/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
     ports:
-      - "9200:9200"
+      - "3100:3100"
     networks: [ messenger-net ]
     healthcheck:
-      test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1" ]
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1" ]
       interval: 10s
-      timeout: 10s
-      retries: 20
+      timeout: 5s
+      retries: 10
 
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.15.0
+  alloy:
+    image: grafana/alloy:v1.4.0
     depends_on:
-      elasticsearch:
+      loki:
         condition: service_healthy
-    environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-    ports:
-      - "5601:5601"
-    networks: [ messenger-net ]
-
-  kibana-init:
-    image: curlimages/curl:8.9.1
-    depends_on:
-      kibana:
-        condition: service_started
-    networks: [ messenger-net ]
     volumes:
-      - ./scripts/init-kibana.sh:/init-kibana.sh:ro
-    entrypoint: [ "/bin/sh", "/init-kibana.sh" ]
-
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:8.15.0
-    user: root
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    environment:
-      ES_PASSWORD: secretsecret
-    volumes:
-      - ./infra/filebeat/filebeat.yaml:/usr/share/filebeat/filebeat.yml:ro
+      - ./infra/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - filebeat-data:/usr/share/filebeat/data
+    ports:
+      - "12345:12345"
+    command: [ "run", "--server.http.listen-addr=0.0.0.0:12345", "/etc/alloy/config.alloy" ]
     networks: [ messenger-net ]
-    command: [ "-e", "--strict.perms=false" ]
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    depends_on:
+      loki:
+        condition: service_healthy
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    networks: [ messenger-net ]
