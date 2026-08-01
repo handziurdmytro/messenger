@@ -7,7 +7,7 @@ discovery.relabel "filtered" {
 
   rule {
     source_labels = ["__meta_docker_container_label_logs_sink"]
-    regex         = "operational"
+    regex         = "(.*,)?operational(,.*)?"
     action        = "keep"
   }
 
