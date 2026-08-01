@@ -1,0 +1,71 @@
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "filtered" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_logs_sink"]
+    regex         = "operational"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "default" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.filtered.output
+  labels     = {}
+  relabel_rules = discovery.relabel.filtered.rules
+  forward_to = [loki.process.app_logs.receiver]
+}
+
+loki.process "app_logs" {
+  stage.json {
+    expressions = {
+      level      = "level",
+      msg        = "msg",
+      service    = "service",
+      component  = "component",
+      request_id = "request_id",
+      user_id    = "user_id",
+      app_time   = "time",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "level",
+    }
+  }
+
+  stage.structured_metadata {
+    values = {
+      request_id = "request_id",
+      user_id    = "user_id",
+    }
+  }
+
+  stage.timestamp {
+    source = "app_time"
+    format = "RFC3339Nano"
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
