@@ -13,6 +13,7 @@ import (
 	kafkaoutbound "github.com/handziurdmytro/messenger/message-service/internal/adapter/outbound/kafka"
 	"github.com/handziurdmytro/messenger/message-service/internal/adapter/outbound/scylla"
 	"github.com/handziurdmytro/messenger/message-service/internal/config"
+	"golang.org/x/sync/errgroup"
 )
 
 type App struct {
@@ -53,26 +54,20 @@ func New(cfg config.Config, baseLogger *slog.Logger) (*App, error) {
 }
 
 func (a *App) Start(ctx context.Context) error {
-	errch := make(chan error, 2)
+	g, gCtx := errgroup.WithContext(ctx)
 
-	go func() {
-		if err := a.consumer.Start(ctx); err != nil {
-			errch <- fmt.Errorf("consumer: %w", err)
-		}
-	}()
+	g.Go(func() error {
+		return a.consumer.Start(gCtx)
+	})
 
-	go func() {
+	g.Go(func() error {
 		if err := a.server.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errch <- fmt.Errorf("rest server: %w", err)
+			return fmt.Errorf("rest server: %w", err)
 		}
-	}()
-
-	select {
-	case err := <-errch:
-		return err
-	case <-ctx.Done():
 		return nil
-	}
+	})
+
+	return g.Wait()
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
