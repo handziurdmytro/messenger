@@ -10,15 +10,18 @@ import (
 	"github.com/handziurdmytro/messenger/message-service/internal/app"
 	"github.com/handziurdmytro/messenger/message-service/internal/config"
 	"github.com/handziurdmytro/messenger/pkg/logger"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	cfg, err := config.Load()
 	if err != nil {
 		logger.New("message-service", "INFO").Error("failed to load config", logger.KeyError, err)
 		os.Exit(1)
 	}
-
 	log := logger.New("message-service", cfg.LogLevel)
 
 	a, err := app.New(cfg, log)
@@ -27,36 +30,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	g, gCtx := errgroup.WithContext(ctx)
 
-	runCtx, cancelRun := context.WithCancel(context.Background())
+	g.Go(func() error {
+		log.Info("starting server...")
+		return a.Start(gCtx)
+	})
 
-	errChan := make(chan error, 1)
+	g.Go(func() error {
+		<-gCtx.Done()
+		log.Info("shutting down...")
 
-	go func() {
-		if err := a.Start(runCtx); err != nil {
-			errChan <- err
-		}
-	}()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-	log.Info("server started")
+		return a.Shutdown(shutdownCtx)
+	})
 
-	select {
-	case err := <-errChan:
-		log.Error("application crashed", logger.KeyError, err)
-	case sig := <-quit:
-		log.Info("received shutdown signal", "signal", sig.String())
-	}
-
-	cancelRun()
-	log.Info("shutting down...")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err = a.Shutdown(shutdownCtx); err != nil {
-		log.Error("failed to shutdown server", logger.KeyError, err)
+	if err = g.Wait(); err != nil {
+		log.Error("server exited with error", logger.KeyError, err)
 		os.Exit(1)
 	}
 
