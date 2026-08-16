@@ -50,7 +50,7 @@ func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App,
 
 func fetchPublicKeyWithRetry(ctx context.Context, provider *authclient.HTTPClient, attempts int, delay time.Duration) ([]byte, error) {
 	var lastErr error
-	for i := 0; i < attempts; i++ {
+	for range attempts {
 		attemptCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		key, err := provider.FetchPublicKey(attemptCtx)
 		cancel()

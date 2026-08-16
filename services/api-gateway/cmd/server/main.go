@@ -12,42 +12,48 @@ import (
 	"github.com/handziurdmytro/messenger/api-gateway/internal/app"
 	"github.com/handziurdmytro/messenger/api-gateway/internal/config"
 	"github.com/handziurdmytro/messenger/pkg/logger"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	cfg, err := config.Load()
 	if err != nil {
 		logger.New("api-gateway", "INFO").Error("failed to load config", logger.KeyError, err)
 		os.Exit(1)
 	}
-
 	log := logger.New("api-gateway", cfg.LogLevel)
 
-	a, err := app.New(context.Background(), cfg, log)
+	a, err := app.New(ctx, cfg, log)
 	if err != nil {
 		log.Error("failed to initialize app", logger.KeyError, err)
 		os.Exit(1)
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	g, gCtx := errgroup.WithContext(ctx)
 
-	go func() {
+	g.Go(func() error {
+		log.Info("starting server...")
 		if err := a.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("failed to start server", logger.KeyError, err)
-			os.Exit(1)
+			return err
 		}
-	}()
+		return nil
+	})
 
-	log.Info("server started")
-	<-quit
-	log.Info("shutting down...")
+	g.Go(func() error {
+		<-gCtx.Done()
+		log.Info("shutting down...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-	if err := a.Shutdown(ctx); err != nil {
-		log.Error("failed to shutdown server", logger.KeyError, err)
+		return a.Shutdown(shutdownCtx)
+	})
+
+	if err = g.Wait(); err != nil {
+		log.Error("server exited with error", logger.KeyError, err)
 		os.Exit(1)
 	}
 
