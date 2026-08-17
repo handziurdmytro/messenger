@@ -68,7 +68,7 @@ func fetchPublicKeyWithRetry(ctx context.Context, provider *authclient.HTTPClien
 	return nil, lastErr
 }
 
-func (a *App) Start() error {
+func (a *App) Start(ctx context.Context) error {
 	return a.server.Start()
 }
 
