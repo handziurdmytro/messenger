@@ -1,6 +1,6 @@
 module github.com/handziurdmytro/messenger/auth-service
 
-go 1.26.2
+go 1.27.0
 
 require (
 	github.com/caarlos0/env/v11 v11.4.1
