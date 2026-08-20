@@ -48,26 +48,6 @@ func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App,
 	return &App{server: server, config: cfg}, nil
 }
 
-func fetchPublicKeyWithRetry(ctx context.Context, provider *authclient.HTTPClient, attempts int, delay time.Duration) ([]byte, error) {
-	var lastErr error
-	for range attempts {
-		attemptCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		key, err := provider.FetchPublicKey(attemptCtx)
-		cancel()
-		if err == nil {
-			return key, nil
-		}
-		lastErr = err
-
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
-	}
-	return nil, lastErr
-}
-
 func (a *App) Start(ctx context.Context) error {
 	return a.server.Start()
 }
