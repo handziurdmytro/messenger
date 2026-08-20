@@ -8,57 +8,32 @@ import (
 	"time"
 
 	"github.com/handziurdmytro/messenger/pkg/logger"
+	"github.com/handziurdmytro/messenger/pkg/runner"
 	"github.com/handziurdmytro/messenger/user-service/internal/app"
 	"github.com/handziurdmytro/messenger/user-service/internal/config"
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	cfg, err := config.Load()
 	if err != nil {
 		logger.New("user-service", "INFO").Error("failed to load config", logger.KeyError, err)
 		os.Exit(1)
 	}
-
 	log := logger.New("user-service", cfg.LogLevel)
 
-	a, err := app.New(context.Background(), cfg, log)
+	a, err := app.New(ctx, cfg, log)
 	if err != nil {
 		log.Error("failed to initialize app", logger.KeyError, err)
 		os.Exit(1)
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-
-	runCtx, cancelRun := context.WithCancel(context.Background())
-
-	errChan := make(chan error, 1)
-
-	go func() {
-		if err := a.Start(runCtx); err != nil {
-			errChan <- err
-		}
-	}()
-
-	log.Info("server started")
-
-	select {
-	case err := <-errChan:
-		log.Error("application crashed", logger.KeyError, err)
-	case sig := <-quit:
-		log.Info("received shutdown signal", "signal", sig.String())
-	}
-
-	cancelRun()
-	log.Info("shutting down...")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err = a.Shutdown(shutdownCtx); err != nil {
-		log.Error("failed to shutdown server", logger.KeyError, err)
+	log.Info("starting server...")
+	if err = runner.Run(ctx, log, 10*time.Second, a); err != nil {
+		log.Error("server exited with error", logger.KeyError, err)
 		os.Exit(1)
 	}
-
 	log.Info("server stopped")
 }

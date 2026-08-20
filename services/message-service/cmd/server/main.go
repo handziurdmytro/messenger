@@ -10,7 +10,7 @@ import (
 	"github.com/handziurdmytro/messenger/message-service/internal/app"
 	"github.com/handziurdmytro/messenger/message-service/internal/config"
 	"github.com/handziurdmytro/messenger/pkg/logger"
-	"golang.org/x/sync/errgroup"
+	"github.com/handziurdmytro/messenger/pkg/runner"
 )
 
 func main() {
@@ -30,27 +30,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	g, gCtx := errgroup.WithContext(ctx)
-
-	g.Go(func() error {
-		log.Info("starting server...")
-		return a.Start(gCtx)
-	})
-
-	g.Go(func() error {
-		<-gCtx.Done()
-		log.Info("shutting down...")
-
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		return a.Shutdown(shutdownCtx)
-	})
-
-	if err = g.Wait(); err != nil {
+	log.Info("starting server...")
+	if err = runner.Run(ctx, log, 10*time.Second, a); err != nil {
 		log.Error("server exited with error", logger.KeyError, err)
 		os.Exit(1)
 	}
-
 	log.Info("server stopped")
 }
