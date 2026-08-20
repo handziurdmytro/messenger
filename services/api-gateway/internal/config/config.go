@@ -3,43 +3,28 @@ package config
 import (
 	"fmt"
 
-	"github.com/handziurdmytro/messenger/pkg/env"
-	"github.com/joho/godotenv"
+	"github.com/caarlos0/env/v11"
 )
 
 type Config struct {
-	LogLevel       string
-	ServerPort     string
-	AuthServiceURL string
-	RoutesPath     string
-	Routes         []RouteConfig
+	LogLevel       string        `env:"LOG_LEVEL" envDefault:"INFO"`
+	ServerPort     string        `env:"SERVER_PORT,required"`
+	AuthServiceURL string        `env:"AUTH_SERVICE_URL,required"`
+	RoutesPath     string        `env:"ROUTES_PATH" envDefault:"./config/routes.yaml"`
+	Routes         []RouteConfig `env:"-"`
 }
 
 func Load() (Config, error) {
-	_ = godotenv.Load()
-
-	serverPort, err := env.Get("SERVER_PORT")
+	cfg, err := env.ParseAs[Config]()
 	if err != nil {
-		return Config{}, fmt.Errorf("failed to load env variables: %w", err)
+		return Config{}, fmt.Errorf("failed to parse environment config: %w", err)
 	}
 
-	authServiceURL, err := env.Get("AUTH_SERVICE_URL")
+	routes, err := loadRoutes(cfg.RoutesPath)
 	if err != nil {
-		return Config{}, fmt.Errorf("failed to load env variables: %w", err)
+		return Config{}, fmt.Errorf("failed to load routes from %s: %w", cfg.RoutesPath, err)
 	}
 
-	routesPath := env.GetOr("ROUTES_PATH", "./config/routes.yaml")
-
-	routes, err := loadRoutes(routesPath)
-	if err != nil {
-		return Config{}, fmt.Errorf("failed to load routes: %w", err)
-	}
-
-	return Config{
-		LogLevel:       env.GetOr("LOG_LEVEL", "INFO"),
-		ServerPort:     serverPort,
-		AuthServiceURL: authServiceURL,
-		RoutesPath:     routesPath,
-		Routes:         routes,
-	}, nil
+	cfg.Routes = routes
+	return cfg, nil
 }
