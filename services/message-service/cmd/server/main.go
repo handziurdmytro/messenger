@@ -11,12 +11,14 @@ import (
 	"github.com/handziurdmytro/messenger/message-service/internal/config"
 	"github.com/handziurdmytro/messenger/pkg/logger"
 	"github.com/handziurdmytro/messenger/pkg/runner"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	_ = godotenv.Load()
 	cfg, err := config.Load()
 	if err != nil {
 		logger.New("message-service", "INFO").Error("failed to load config", logger.KeyError, err)

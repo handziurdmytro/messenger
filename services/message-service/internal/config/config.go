@@ -3,61 +3,24 @@ package config
 import (
 	"fmt"
 
-	"github.com/handziurdmytro/messenger/pkg/env"
-	"github.com/joho/godotenv"
+	"github.com/caarlos0/env/v11"
 )
 
 type Config struct {
-	ServerPort    string
-	KafkaBrokers  string
-	KafkaInTopic  string
-	KafkaOutTopic string
-	KafkaGroupID  string
-	ScyllaHosts   string
-	LogLevel      string
+	ServerPort    string `env:"SERVER_PORT,required"`
+	KafkaBrokers  string `env:"KAFKA_BROKERS,required"`
+	KafkaInTopic  string `env:"KAFKA_IN_TOPIC,required"`
+	KafkaOutTopic string `env:"KAFKA_OUT_TOPIC,required"`
+	KafkaGroupID  string `env:"KAFKA_GROUP_ID,required"`
+	ScyllaHosts   string `env:"SCYLLA_HOSTS,required"`
+	LogLevel      string `env:"LOG_LEVEL" envDefault:"INFO"`
 }
 
 func Load() (Config, error) {
-
-	_ = godotenv.Load()
-
-	serverPort, err := env.Get("SERVER_PORT")
+	cfg, err := env.ParseAs[Config]()
 	if err != nil {
-		return Config{}, fmt.Errorf("failed to load env: %w", err)
+		return Config{}, fmt.Errorf("failed to parse environment config: %w", err)
 	}
 
-	kafkaInTopic, err := env.Get("KAFKA_IN_TOPIC")
-	if err != nil {
-		return Config{}, fmt.Errorf("failed to load env: %w", err)
-	}
-
-	kafkaOutTopic, err := env.Get("KAFKA_OUT_TOPIC")
-	if err != nil {
-		return Config{}, fmt.Errorf("failed to load env: %w", err)
-	}
-
-	kafkaBrokers, err := env.Get("KAFKA_BROKERS")
-	if err != nil {
-		return Config{}, fmt.Errorf("failed to load env: %w", err)
-	}
-
-	kafkaGroupID, err := env.Get("KAFKA_GROUP_ID")
-	if err != nil {
-		return Config{}, fmt.Errorf("failed to load env: %w", err)
-	}
-
-	scyllaHosts, err := env.Get("SCYLLA_HOSTS")
-	if err != nil {
-		return Config{}, fmt.Errorf("failed to load env: %w", err)
-	}
-
-	return Config{
-		ServerPort:    serverPort,
-		KafkaBrokers:  kafkaBrokers,
-		KafkaGroupID:  kafkaGroupID,
-		KafkaInTopic:  kafkaInTopic,
-		KafkaOutTopic: kafkaOutTopic,
-		ScyllaHosts:   scyllaHosts,
-		LogLevel:      env.GetOr("LOG_LEVEL", "INFO"),
-	}, nil
+	return cfg, nil
 }
