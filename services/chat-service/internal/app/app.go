@@ -14,6 +14,7 @@ import (
 	kafkaoutbound "github.com/handziurdmytro/messenger/chat-service/internal/adapter/outbound/kafka"
 	"github.com/handziurdmytro/messenger/chat-service/internal/config"
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
+	"golang.org/x/sync/errgroup"
 )
 
 type App struct {
@@ -46,32 +47,27 @@ func New(cfg config.Config, baseLogger *slog.Logger) (*App, error) {
 }
 
 func (a *App) Start(ctx context.Context) error {
-	errCh := make(chan error, 3)
+	g, gCtx := errgroup.WithContext(ctx)
 
-	go func() {
+	g.Go(func() error {
 		if err := a.wsServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- fmt.Errorf("ws server: %w", err)
+			return fmt.Errorf("ws server: %w", err)
 		}
-	}()
-
-	go func() {
-		if err := a.restServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- fmt.Errorf("rest server: %w", err)
-		}
-	}()
-
-	go func() {
-		if err := a.persistedConsumer.Start(ctx); err != nil {
-			errCh <- fmt.Errorf("persisted consumer: %w", err)
-		}
-	}()
-
-	select {
-	case err := <-errCh:
-		return err
-	case <-ctx.Done():
 		return nil
-	}
+	})
+
+	g.Go(func() error {
+		if err := a.restServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("rest server: %w", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		return a.persistedConsumer.Start(gCtx)
+	})
+
+	return g.Wait()
 }
 
 func (a *App) Shutdown(ctx context.Context) error {

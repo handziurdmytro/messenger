@@ -53,11 +53,14 @@ func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App,
 		cfg.KafkaTopic,
 	)
 
-	registerUC := usecase.NewRegisterUseCase(userRepo, tokenRepo, tokenSvc, publisher)
-	loginUC := usecase.NewLoginUseCase(userRepo, tokenRepo, tokenSvc)
-	refreshUC := usecase.NewRefreshUseCase(userRepo, tokenRepo, tokenSvc)
-
-	server := rest.NewServer(cfg.ServerPort, registerUC, loginUC, refreshUC, tokenSvc, baseLogger)
+	server := rest.NewServer(
+		cfg.ServerPort,
+		usecase.NewRegisterUseCase(userRepo, tokenRepo, tokenSvc, publisher),
+		usecase.NewLoginUseCase(userRepo, tokenRepo, tokenSvc),
+		usecase.NewRefreshUseCase(userRepo, tokenRepo, tokenSvc),
+		tokenSvc,
+		baseLogger,
+	)
 
 	return &App{
 		server:    server,
@@ -65,7 +68,7 @@ func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App,
 	}, nil
 }
 
-func (a *App) Start() error {
+func (a *App) Start(_ context.Context) error {
 	return a.server.Start()
 }
 

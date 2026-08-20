@@ -14,6 +14,7 @@ import (
 	"github.com/handziurdmytro/messenger/user-service/internal/adapter/outbound/postgres"
 	"github.com/handziurdmytro/messenger/user-service/internal/config"
 	"github.com/handziurdmytro/messenger/user-service/internal/usecase"
+	"golang.org/x/sync/errgroup"
 )
 
 type App struct {
@@ -56,26 +57,20 @@ func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App,
 }
 
 func (a *App) Start(ctx context.Context) error {
-	errch := make(chan error, 2)
+	g, gCtx := errgroup.WithContext(ctx)
 
-	go func() {
+	g.Go(func() error {
 		if err := a.server.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errch <- fmt.Errorf("rest server: %w", err)
+			return fmt.Errorf("rest server: %w", err)
 		}
-	}()
-
-	go func() {
-		if err := a.consumer.Start(ctx); err != nil {
-			errch <- fmt.Errorf("consumer: %w", err)
-		}
-	}()
-
-	select {
-	case err := <-errch:
-		return err
-	case <-ctx.Done():
 		return nil
-	}
+	})
+
+	g.Go(func() error {
+		return a.consumer.Start(gCtx)
+	})
+
+	return g.Wait()
 }
 
 func (a *App) Shutdown(ctx context.Context) error {

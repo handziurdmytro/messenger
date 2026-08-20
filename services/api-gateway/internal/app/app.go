@@ -48,7 +48,7 @@ func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App,
 	return &App{server: server, config: cfg}, nil
 }
 
-func (a *App) Start(ctx context.Context) error {
+func (a *App) Start(_ context.Context) error {
 	return a.server.Start()
 }
 
