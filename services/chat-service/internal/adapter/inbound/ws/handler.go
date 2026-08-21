@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
 	"github.com/handziurdmytro/messenger/chat-service/internal/port/outbound"
 	"github.com/handziurdmytro/messenger/pkg/logger"

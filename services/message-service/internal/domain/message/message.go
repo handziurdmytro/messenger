@@ -13,8 +13,10 @@ var (
 	ErrFromUserEmpty = errors.New("from user is empty")
 )
 
-type ID string
-type RoomID string
+type (
+	ID     string
+	RoomID string
+)
 
 type Message struct {
 	ID        ID

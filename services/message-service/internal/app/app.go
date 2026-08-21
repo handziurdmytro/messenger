@@ -8,12 +8,13 @@ import (
 	"net/http"
 	"strings"
 
+	"golang.org/x/sync/errgroup"
+
 	kafkainbound "github.com/handziurdmytro/messenger/message-service/internal/adapter/inbound/kafka"
 	"github.com/handziurdmytro/messenger/message-service/internal/adapter/inbound/rest"
 	kafkaoutbound "github.com/handziurdmytro/messenger/message-service/internal/adapter/outbound/kafka"
 	"github.com/handziurdmytro/messenger/message-service/internal/adapter/outbound/scylla"
 	"github.com/handziurdmytro/messenger/message-service/internal/config"
-	"golang.org/x/sync/errgroup"
 )
 
 type App struct {

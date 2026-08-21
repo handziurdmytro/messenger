@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/handziurdmytro/messenger/message-service/internal/domain/message"
 	"github.com/segmentio/kafka-go"
+
+	"github.com/handziurdmytro/messenger/message-service/internal/domain/message"
 )
 
 type MessagePublisher struct {

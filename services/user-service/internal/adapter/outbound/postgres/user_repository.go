@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 )
 
 type UserRepository struct {

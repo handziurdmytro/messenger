@@ -5,9 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 )
 
 type TokenRepository struct {

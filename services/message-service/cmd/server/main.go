@@ -7,11 +7,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"github.com/handziurdmytro/messenger/message-service/internal/app"
 	"github.com/handziurdmytro/messenger/message-service/internal/config"
 	"github.com/handziurdmytro/messenger/pkg/logger"
 	"github.com/handziurdmytro/messenger/pkg/runner"
-	"github.com/joho/godotenv"
 )
 
 func main() {

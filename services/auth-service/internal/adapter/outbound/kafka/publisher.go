@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/segmentio/kafka-go"
+
+	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 )
 
 type EventPublisher struct {

@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-
 	"strings"
+
+	"golang.org/x/sync/errgroup"
 
 	kafkainbound "github.com/handziurdmytro/messenger/user-service/internal/adapter/inbound/kafka"
 	"github.com/handziurdmytro/messenger/user-service/internal/adapter/inbound/rest"
 	"github.com/handziurdmytro/messenger/user-service/internal/adapter/outbound/postgres"
 	"github.com/handziurdmytro/messenger/user-service/internal/config"
 	"github.com/handziurdmytro/messenger/user-service/internal/usecase"
-	"golang.org/x/sync/errgroup"
 )
 
 type App struct {

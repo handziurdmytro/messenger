@@ -7,10 +7,11 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/segmentio/kafka-go"
+
 	"github.com/handziurdmytro/messenger/message-service/internal/domain/message"
 	"github.com/handziurdmytro/messenger/message-service/internal/port/outbound"
 	"github.com/handziurdmytro/messenger/pkg/logger"
-	"github.com/segmentio/kafka-go"
 )
 
 type MessageConsumer struct {

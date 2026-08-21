@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
+
 	"github.com/handziurdmytro/messenger/message-service/internal/domain/message"
 )
 

@@ -7,10 +7,11 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/segmentio/kafka-go"
+
 	"github.com/handziurdmytro/messenger/pkg/logger"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 	"github.com/handziurdmytro/messenger/user-service/internal/port/outbound"
-	"github.com/segmentio/kafka-go"
 )
 
 type UserCreatedConsumer struct {

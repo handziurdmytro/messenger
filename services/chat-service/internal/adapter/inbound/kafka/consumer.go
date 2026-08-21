@@ -7,9 +7,10 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/segmentio/kafka-go"
+
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
 	"github.com/handziurdmytro/messenger/pkg/logger"
-	"github.com/segmentio/kafka-go"
 )
 
 type PersistedConsumer struct {

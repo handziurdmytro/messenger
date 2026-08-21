@@ -17,8 +17,10 @@ var (
 	ErrRefreshInvalid = errors.New("refresh token invalid")
 )
 
-type AccessToken string
-type RefreshToken string
+type (
+	AccessToken  string
+	RefreshToken string
+)
 
 type TokenPair struct {
 	Access    AccessToken
