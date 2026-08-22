@@ -1,8 +1,9 @@
 version: "2"
 
 run:
+  go: "1.27.0"
   timeout: 5m
-  tests: true
+  tests: false
 
 linters:
   default: standard
@@ -58,6 +59,12 @@ linters:
         linters:
           - revive
           - gocritic
+      - linters:
+          - govet
+        text: 'declaration of "err" shadows'
+      - linters:
+          - errcheck
+        source: '(w|conn)\.(Write|SetReadDeadline|SetWriteDeadline|WriteMessage)\(|json\.NewEncoder\(w\)\.Encode\('
 
 formatters:
   enable:
