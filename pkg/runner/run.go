@@ -25,7 +25,10 @@ func Run(ctx context.Context, log *slog.Logger, shutdownTimeout time.Duration, s
 		<-gCtx.Done()
 		log.Info("shutdown signal received")
 
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(
+			context.WithoutCancel(gCtx),
+			shutdownTimeout,
+		)
 		defer cancel()
 
 		var errs []error
