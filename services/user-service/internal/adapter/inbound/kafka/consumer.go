@@ -56,12 +56,12 @@ func (c *UserCreatedConsumer) Start(ctx context.Context) error {
 			return fmt.Errorf("fetch message: %w", err)
 		}
 
-		if err = c.handle(ctx, msg); err != nil {
+		if err := c.handle(ctx, msg); err != nil {
 			c.log.Error("handle failed", logger.KeyError, err)
 			continue
 		}
 
-		if err = c.reader.CommitMessages(ctx, msg); err != nil {
+		if err := c.reader.CommitMessages(ctx, msg); err != nil {
 			c.log.Error("commit failed", logger.KeyError, err)
 		}
 	}

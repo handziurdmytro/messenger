@@ -50,7 +50,7 @@ func (h *WSProxyHandler) tunnel(w http.ResponseWriter, r *http.Request, decision
 	log := logger.FromContext(r.Context())
 
 	upstreamAddr := targetToAddr(decision.TargetURL)
-	upstreamConn, err := net.Dial("tcp", upstreamAddr)
+	upstreamConn, err := (&net.Dialer{}).DialContext(r.Context(), "tcp", upstreamAddr)
 	if err != nil {
 		log.Error("ws: dial upstream failed", "upstream", upstreamAddr, "error", err)
 		writeError(w, http.StatusBadGateway, fmt.Sprintf("upstream unavailable: %v", err))
@@ -63,7 +63,7 @@ func (h *WSProxyHandler) tunnel(w http.ResponseWriter, r *http.Request, decision
 		r.Header.Set(k, v)
 	}
 
-	if err = r.Write(upstreamConn); err != nil {
+	if err := r.Write(upstreamConn); err != nil {
 		log.Error("ws: failed to forward upgrade request", "upstream", upstreamAddr, "error", err)
 		writeError(w, http.StatusBadGateway, "failed to forward upgrade request")
 		return
@@ -97,7 +97,7 @@ func (h *WSProxyHandler) tunnel(w http.ResponseWriter, r *http.Request, decision
 		errc <- err
 	}()
 
-	if err = <-errc; err != nil {
+	if err := <-errc; err != nil {
 		log.Info("ws: tunnel closed", "upstream", upstreamAddr, "reason", err)
 	}
 }

@@ -62,12 +62,12 @@ func (c *MessageConsumer) Start(ctx context.Context) error {
 			return fmt.Errorf("fetch message: %w", err)
 		}
 
-		if err = c.handle(ctx, kafkaMsg); err != nil {
+		if err := c.handle(ctx, kafkaMsg); err != nil {
 			c.log.Error("handle failed", logger.KeyError, err)
 			continue
 		}
 
-		if err = c.reader.CommitMessages(ctx, kafkaMsg); err != nil {
+		if err := c.reader.CommitMessages(ctx, kafkaMsg); err != nil {
 			c.log.Error("commit failed", logger.KeyError, err)
 		}
 	}
@@ -89,11 +89,11 @@ func (c *MessageConsumer) handle(ctx context.Context, kafkaMsg kafka.Message) er
 		return fmt.Errorf("build message: %w", err)
 	}
 
-	if err = c.repository.Save(ctx, msg); err != nil {
+	if err := c.repository.Save(ctx, msg); err != nil {
 		return fmt.Errorf("save message: %w", err)
 	}
 
-	if err = c.publisher.Publish(ctx, msg); err != nil {
+	if err := c.publisher.Publish(ctx, msg); err != nil {
 		c.log.Error("publish persisted event failed", "message_id", msg.ID, logger.KeyError, err)
 	}
 

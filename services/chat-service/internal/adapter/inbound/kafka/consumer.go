@@ -53,17 +53,17 @@ func (c *PersistedConsumer) Start(ctx context.Context) error {
 			return fmt.Errorf("fetch message: %w", err)
 		}
 
-		if err = c.handle(ctx, kafkaMsg); err != nil {
+		if err := c.handle(ctx, kafkaMsg); err != nil {
 			c.log.Error("handle failed", logger.KeyError, err)
 		}
 
-		if err = c.reader.CommitMessages(ctx, kafkaMsg); err != nil {
+		if err := c.reader.CommitMessages(ctx, kafkaMsg); err != nil {
 			c.log.Error("commit failed", logger.KeyError, err)
 		}
 	}
 }
 
-func (c *PersistedConsumer) handle(ctx context.Context, kafkaMsg kafka.Message) error {
+func (c *PersistedConsumer) handle(_ context.Context, kafkaMsg kafka.Message) error {
 	var event persistedEvent
 	if err := json.Unmarshal(kafkaMsg.Value, &event); err != nil {
 		return fmt.Errorf("unmarshal event: %w", err)
@@ -83,7 +83,7 @@ func (c *PersistedConsumer) handle(ctx context.Context, kafkaMsg kafka.Message) 
 		CreatedAt: createdAt,
 	}
 
-	if err = c.hub.Confirm(event.FromUser, confirm); err != nil {
+	if err := c.hub.Confirm(event.FromUser, confirm); err != nil {
 		c.log.Error("confirm failed", "message_id", event.MessageID, logger.KeyError, err)
 	}
 

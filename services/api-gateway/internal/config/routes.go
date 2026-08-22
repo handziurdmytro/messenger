@@ -26,11 +26,11 @@ func loadRoutes(path string) ([]RouteConfig, error) {
 	}
 
 	var f routesFile
-	if err = yaml.Unmarshal(data, &f); err != nil {
+	if err := yaml.Unmarshal(data, &f); err != nil {
 		return nil, fmt.Errorf("parse routes file: %w", err)
 	}
 
-	if err = validateRoutes(f.Routes); err != nil {
+	if err := validateRoutes(f.Routes); err != nil {
 		return nil, err
 	}
 

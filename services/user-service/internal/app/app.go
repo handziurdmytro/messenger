@@ -28,7 +28,7 @@ func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App,
 		return nil, fmt.Errorf("init postgres: %w", err)
 	}
 
-	if err = postgres.Migrate(ctx, pool); err != nil {
+	if err := postgres.Migrate(ctx, pool); err != nil {
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 

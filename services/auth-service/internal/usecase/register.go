@@ -47,7 +47,7 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input RegisterInput) (Re
 		return RegisterOutput{}, fmt.Errorf("create user: %w", err)
 	}
 
-	if err = uc.users.Save(ctx, user); err != nil {
+	if err := uc.users.Save(ctx, user); err != nil {
 		if errors.Is(err, auth.ErrEmailTaken) {
 			return RegisterOutput{}, auth.ErrEmailTaken
 		}
@@ -59,11 +59,11 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input RegisterInput) (Re
 		return RegisterOutput{}, fmt.Errorf("issue tokens: %w", err)
 	}
 
-	if err = uc.tokens.SaveRefresh(ctx, refresh); err != nil {
+	if err := uc.tokens.SaveRefresh(ctx, refresh); err != nil {
 		return RegisterOutput{}, fmt.Errorf("save refresh: %w", err)
 	}
 
-	if err = uc.publisher.PublishUserCreated(ctx, user); err != nil {
+	if err := uc.publisher.PublishUserCreated(ctx, user); err != nil {
 		logger.WithComponent(logger.FromContext(ctx), "auth").Error(
 			"publish user.created failed",
 			logger.KeyUserID, user.ID,

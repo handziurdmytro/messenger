@@ -38,7 +38,7 @@ func run() int {
 	}
 
 	log.Info("starting server...")
-	if err = runner.Run(ctx, log, 10*time.Second, a); err != nil {
+	if err := runner.Run(ctx, log, 10*time.Second, a); err != nil {
 		log.Error("server exited with error", logger.KeyError, err)
 		return 1
 	}

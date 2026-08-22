@@ -77,7 +77,7 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request, decision proxy.D
 				pr.Out.Header.Set(k, v)
 			}
 		},
-		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 			log.Error("gateway: upstream error", "target", target.String(), "error", err)
 			writeError(w, http.StatusBadGateway, fmt.Sprintf("upstream error: %v", err))
 		},

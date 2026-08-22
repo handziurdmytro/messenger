@@ -32,7 +32,7 @@ func (a *Authenticator) Authenticate(t Token) (Identity, error) {
 		return Identity{}, fmt.Errorf("failed to authenticate: %w", err)
 	}
 
-	if err = a.validate(claims); err != nil {
+	if err := a.validate(claims); err != nil {
 		return Identity{}, fmt.Errorf("failed to authenticate: %w", err)
 	}
 
@@ -59,7 +59,7 @@ func (a *Authenticator) parse(token Token) (Claims, error) {
 }
 
 func (a *Authenticator) extractClaims(raw jwt.MapClaims) (Claims, error) {
-	userId, ok := raw["sub"].(string)
+	userID, ok := raw["sub"].(string)
 	if !ok {
 		return Claims{}, ErrTokenMalformed
 	}
@@ -82,7 +82,7 @@ func (a *Authenticator) extractClaims(raw jwt.MapClaims) (Claims, error) {
 	}
 
 	return Claims{
-		UserID:    userId,
+		UserID:    userID,
 		Email:     email,
 		Roles:     roles,
 		ExpiresAt: time.Unix(int64(exp), 0),

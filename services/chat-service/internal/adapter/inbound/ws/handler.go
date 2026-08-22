@@ -24,7 +24,7 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin:     func(_ *http.Request) bool { return true },
 }
 
 type Handler struct {
@@ -74,12 +74,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	connLog.Info("ws: connected")
 
 	go h.writePump(conn, client, connLog)
-	go h.readPump(conn, client, connLog)
+	go h.readPump(r.Context(), conn, client, connLog)
 }
 
-func (h *Handler) readPump(conn *websocket.Conn, client *chat.Client, log *slog.Logger) {
+func (h *Handler) readPump(ctx context.Context, conn *websocket.Conn, client *chat.Client, log *slog.Logger) {
 	defer func() {
-		h.hub.Leave(client)
+		_ = h.hub.Leave(client)
 		conn.Close()
 		log.Info("ws: disconnected")
 	}()
@@ -109,16 +109,16 @@ func (h *Handler) readPump(conn *websocket.Conn, client *chat.Client, log *slog.
 			continue
 		}
 
-		if err = h.hub.Publish(msg); err != nil {
+		if err := h.hub.Publish(msg); err != nil {
 			log.Warn("ws: publish to room failed", logger.KeyError, err)
 			continue
 		}
 
 		go func(m chat.Message) {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			publishCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 
-			if err := h.publisher.Publish(ctx, m); err != nil {
+			if err := h.publisher.Publish(publishCtx, m); err != nil {
 				log.Error("kafka: publish failed", logger.KeyError, err)
 				// TODO: dead letter queue or retry
 			}
@@ -148,7 +148,7 @@ func (h *Handler) writePump(conn *websocket.Conn, client *chat.Client, log *slog
 				continue
 			}
 
-			if err = conn.WriteMessage(websocket.TextMessage, raw); err != nil {
+			if err := conn.WriteMessage(websocket.TextMessage, raw); err != nil {
 				return
 			}
 

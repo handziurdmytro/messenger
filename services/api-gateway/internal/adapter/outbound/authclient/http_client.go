@@ -21,7 +21,7 @@ func NewHTTPClient(baseURL string) *HTTPClient {
 }
 
 func (c *HTTPClient) FetchPublicKey(ctx context.Context) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/.well-known/jwks.pem", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/.well-known/jwks.pem", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
