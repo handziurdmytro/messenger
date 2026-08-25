@@ -20,7 +20,7 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(&dst); err != nil {
-		return fmt.Errorf("failed to decode: %w", err)
+		return translateDecodeError(err)
 	}
 
 	if err := dec.Decode(&struct{}{}); err != io.EOF {
@@ -39,10 +39,4 @@ func WriteJSON(w http.ResponseWriter, status int, data any) error {
 	w.WriteHeader(status)
 	_, _ = w.Write(js)
 	return nil
-}
-
-func WriteError(w http.ResponseWriter, status int, err error) error {
-	return WriteJSON(w, status, struct {
-		Error string `json:"error"`
-	}{err.Error()})
 }
