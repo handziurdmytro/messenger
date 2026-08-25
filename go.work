@@ -3,6 +3,7 @@ go 1.27.0
 use (
 	./pkg/logger
 	./pkg/runner
+	./pkg/httpjson
 	./services/api-gateway
 	./services/auth-service
 	./services/chat-service
