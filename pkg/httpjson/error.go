@@ -18,10 +18,10 @@ func (e *ClientError) Error() string {
 	return e.Message
 }
 
-func Error(w http.ResponseWriter, status int, err error) error {
+func Error(w http.ResponseWriter, status int, msg string) error {
 	return Write(w, status, struct {
 		Error string `json:"error"`
-	}{err.Error()})
+	}{msg})
 }
 
 func translateDecodeError(err error) error {
