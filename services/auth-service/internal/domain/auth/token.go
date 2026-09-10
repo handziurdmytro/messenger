@@ -76,15 +76,20 @@ func NewTokenService(
 	}, nil
 }
 
+type CustomClaims struct {
+	Email string `json:"email"`
+	jwt.RegisteredClaims
+}
+
 func (s *TokenService) Issue(user User) (TokenPair, RefreshEntry, error) {
 	now := time.Now().UTC()
 	expiresAt := now.Add(s.accessTTL)
 
-	claims := jwt.MapClaims{
-		"sub":   string(user.ID),
-		"email": user.Email,
-		"iat":   now.Unix(),
-		"exp":   expiresAt.Unix(),
+	claims := CustomClaims{
+		Email:     user.Email,
+		Subject:   string(user.ID),
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(expiresAt),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
