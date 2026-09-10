@@ -8,17 +8,24 @@ import (
 
 var (
 	ErrPasswordTooShort = errors.New("password must be at least 8 characters")
+	ErrPasswordTooLong  = errors.New("password exceeds maximum length of 72 bytes")
 	ErrPasswordInvalid  = errors.New("invalid password")
 )
 
 type PasswordHash string
 
 func HashPassword(plain string) (PasswordHash, error) {
-	if len(plain) < 8 {
+	passBytes := []byte(plain)
+
+	if len(passBytes) < 8 {
 		return "", ErrPasswordTooShort
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+	if len(passBytes) > 72 {
+		return "", ErrPasswordTooLong
+	}
+
+	hash, err := bcrypt.GenerateFromPassword(passBytes, bcrypt.DefaultCost)
 	if err != nil {
 		return "", err
 	}
