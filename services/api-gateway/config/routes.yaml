@@ -5,14 +5,14 @@ routes:
     strip_prefix: true
     auth_required: false
 
-  - id: chat
+  - id: chat-api
     prefix: /api/chat
     target: http://chat-service:2904
     strip_prefix: true
     auth_required: true
 
   - id: chat-ws
-    prefix: /ws/chat
+    prefix: /ws
     target: http://chat-service:2905
     strip_prefix: false
     auth_required: true
