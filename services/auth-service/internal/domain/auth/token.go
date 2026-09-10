@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	ErrTokenExpired   = errors.New("token expired")
-	ErrTokenInvalid   = errors.New("token invalid")
-	ErrRefreshExpired = errors.New("refresh token expired")
-	ErrRefreshInvalid = errors.New("refresh token invalid")
+	ErrRefreshExpired    = errors.New("refresh token expired")
+	ErrRefreshInvalid    = errors.New("refresh token invalid")
+	ErrPrivateKeyInvalid = errors.New("invalid private key format")
+	ErrTokenIssueFailed  = errors.New("failed to issue access token")
 )
 
 type (
@@ -65,7 +65,7 @@ func NewTokenService(
 ) (*TokenService, error) {
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(privateKeyPEM)
 	if err != nil {
-		return nil, fmt.Errorf("parse private key: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrPrivateKeyInvalid, err)
 	}
 
 	return &TokenService{
@@ -95,7 +95,7 @@ func (s *TokenService) Issue(user User) (TokenPair, RefreshEntry, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
-		return TokenPair{}, RefreshEntry{}, fmt.Errorf("sign token: %w", err)
+		return TokenPair{}, RefreshEntry{}, fmt.Errorf("%w: %v", ErrTokenIssueFailed, err)
 	}
 
 	refresh := NewRefreshEntry(user.ID, s.refreshTTL)
