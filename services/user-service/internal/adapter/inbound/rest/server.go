@@ -20,14 +20,18 @@ func NewServer(
 	getProfile *usecase.GetProfileUseCase,
 	updateProfile *usecase.UpdateProfileUseCase,
 	searchUsers *usecase.SearchUsersUseCase,
+	addContact *usecase.AddContactUseCase,
+	getContacts *usecase.GetContactsUseCase,
 	baseLogger *slog.Logger,
 ) *Server {
-	h := NewHandler(getProfile, updateProfile, searchUsers)
+	h := NewHandler(getProfile, updateProfile, searchUsers, addContact, getContacts)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /users/me", h.GetProfile)
-	mux.HandleFunc("PATCH /users/me", h.UpdateProfile)
-	mux.HandleFunc("GET /users/search", h.SearchUsers)
+	mux.HandleFunc("GET /me", h.GetProfile)
+	mux.HandleFunc("PATCH /me", h.UpdateProfile)
+	mux.HandleFunc("GET /search", h.SearchUsers)
+	mux.HandleFunc("POST /me/contacts", h.AddContact)
+	mux.HandleFunc("GET /me/contacts", h.GetContacts)
 
 	handlerWithLogger := logger.HTTPMiddleware(baseLogger)(mux)
 

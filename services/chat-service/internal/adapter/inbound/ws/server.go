@@ -16,8 +16,14 @@ type Server struct {
 	http *http.Server
 }
 
-func NewServer(port string, hub *chat.Hub, pub outbound.MessagePublisher, baseLogger *slog.Logger) *Server {
-	handler := NewHandler(hub, pub)
+func NewServer(
+	port string,
+	hub *chat.Hub,
+	pub outbound.MessagePublisher,
+	chats outbound.ChatRepository,
+	baseLogger *slog.Logger,
+) *Server {
+	handler := NewHandler(hub, pub, chats)
 
 	mux := http.NewServeMux()
 	mux.Handle("/ws", handler)

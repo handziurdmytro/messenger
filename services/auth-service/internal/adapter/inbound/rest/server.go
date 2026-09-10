@@ -27,9 +27,9 @@ func NewServer(
 	h := NewHandler(register, login, refresh, tokenSvc)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /auth/register", h.Register)
-	mux.HandleFunc("POST /auth/login", h.Login)
-	mux.HandleFunc("POST /auth/refresh", h.Refresh)
+	mux.HandleFunc("POST /register", h.Register)
+	mux.HandleFunc("POST /login", h.Login)
+	mux.HandleFunc("POST /refresh", h.Refresh)
 	mux.HandleFunc("GET /.well-known/jwks.pem", h.JWKS)
 
 	handler := logger.HTTPMiddleware(baseLogger)(mux)

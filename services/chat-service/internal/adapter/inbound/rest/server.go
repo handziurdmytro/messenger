@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
+	"github.com/handziurdmytro/messenger/chat-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
@@ -15,11 +16,11 @@ type Server struct {
 	http *http.Server
 }
 
-func NewServer(port string, hub *chat.Hub, baseLogger *slog.Logger) *Server {
-	handler := NewHandler(hub)
+func NewServer(port string, createChat *usecase.CreateChatUseCase, hub *chat.Hub, baseLogger *slog.Logger) *Server {
+	handler := NewHandler(createChat, hub)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/rooms", handler.CreateRoom)
+	mux.HandleFunc("/", handler.CreateChat)
 
 	handlerWithLogger := logger.HTTPMiddleware(baseLogger)(mux)
 

@@ -23,7 +23,7 @@ func NewServer(port string, router *proxy.Router, authenticator *auth.Authentica
 	authed := authMiddleware(authenticator)
 
 	mux := http.NewServeMux()
-	mux.Handle("/ws/", authed(wsHandler))
+	mux.Handle("/ws", authed(wsHandler))
 	mux.Handle("/", authed(httpHandler))
 
 	handlerWithLogger := logger.HTTPMiddleware(base)(mux)
