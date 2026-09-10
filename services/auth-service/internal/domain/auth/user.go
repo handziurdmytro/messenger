@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"net/mail"
 	"time"
 
 	"github.com/google/uuid"
@@ -9,6 +10,7 @@ import (
 
 var (
 	ErrEmailEmpty   = errors.New("email is empty")
+	ErrEmailInvalid = errors.New("email format is invalid")
 	ErrEmailTaken   = errors.New("email already taken")
 	ErrUserNotFound = errors.New("user not found")
 )
@@ -27,6 +29,11 @@ func NewUser(email, plainPassword string) (User, error) {
 		return User{}, ErrEmailEmpty
 	}
 
+	parsedEmail, err := mail.ParseAddress(email)
+	if err != nil {
+		return User{}, ErrEmailInvalid
+	}
+
 	hash, err := HashPassword(plainPassword)
 	if err != nil {
 		return User{}, err
@@ -34,7 +41,7 @@ func NewUser(email, plainPassword string) (User, error) {
 
 	return User{
 		ID:           UserID(uuid.New().String()),
-		Email:        email,
+		Email:        parsedEmail.Address,
 		PasswordHash: hash,
 		CreatedAt:    time.Now().UTC(),
 	}, nil
