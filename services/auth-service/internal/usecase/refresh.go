@@ -43,16 +43,16 @@ func (uc *RefreshUseCase) Execute(ctx context.Context, token auth.RefreshToken) 
 	}
 
 	if err := uc.tokens.DeleteRefresh(ctx, token); err != nil {
-		return auth.TokenPair{}, fmt.Errorf("delete refresh: %w", err)
+		return auth.TokenPair{}, fmt.Errorf("%w: delete refresh: %v", ErrInternal, err)
 	}
 
 	pair, newRefresh, err := uc.tokenSvc.Issue(user)
 	if err != nil {
-		return auth.TokenPair{}, fmt.Errorf("issue tokens: %w", err)
+		return auth.TokenPair{}, fmt.Errorf("%w: issue tokens: %v", ErrInternal, err)
 	}
 
 	if err := uc.tokens.SaveRefresh(ctx, newRefresh); err != nil {
-		return auth.TokenPair{}, fmt.Errorf("save refresh: %w", err)
+		return auth.TokenPair{}, fmt.Errorf("%w: save refresh: %v", ErrInternal, err)
 	}
 
 	return pair, nil

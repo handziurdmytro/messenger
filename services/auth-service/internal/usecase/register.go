@@ -51,16 +51,16 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input RegisterInput) (Re
 		if errors.Is(err, auth.ErrEmailTaken) {
 			return RegisterOutput{}, auth.ErrEmailTaken
 		}
-		return RegisterOutput{}, fmt.Errorf("save user: %w", err)
+		return RegisterOutput{}, fmt.Errorf("%w: save user: %v", ErrInternal, err)
 	}
 
 	pair, refresh, err := uc.tokenSvc.Issue(user)
 	if err != nil {
-		return RegisterOutput{}, fmt.Errorf("issue tokens: %w", err)
+		return RegisterOutput{}, fmt.Errorf("%w: issue tokens: %v", ErrInternal, err)
 	}
 
 	if err := uc.tokens.SaveRefresh(ctx, refresh); err != nil {
-		return RegisterOutput{}, fmt.Errorf("save refresh: %w", err)
+		return RegisterOutput{}, fmt.Errorf("%w: save refresh: %v", ErrInternal, err)
 	}
 
 	if err := uc.publisher.PublishUserCreated(ctx, user); err != nil {

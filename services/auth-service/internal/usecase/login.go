@@ -48,11 +48,11 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input LoginInput) (LoginOut
 
 	pair, refresh, err := uc.tokenSvc.Issue(user)
 	if err != nil {
-		return LoginOutput{}, fmt.Errorf("issue tokens: %w", err)
+		return LoginOutput{}, fmt.Errorf("%w: issue tokens: %v", ErrInternal, err)
 	}
 
 	if err := uc.tokens.SaveRefresh(ctx, refresh); err != nil {
-		return LoginOutput{}, fmt.Errorf("save refresh: %w", err)
+		return LoginOutput{}, fmt.Errorf("%w: save refresh: %v", ErrInternal, err)
 	}
 
 	return LoginOutput{
