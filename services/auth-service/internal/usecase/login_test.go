@@ -7,64 +7,96 @@ import (
 	"time"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoginUseCase_Execute(t *testing.T) {
-	testPEM := generateTestRSAKeyPEM(t)
-	tokenSvc, _ := auth.NewTokenService(testPEM, 15*time.Minute, 24*time.Hour)
+	const (
+		email         = "valid@gmail.com"
+		validPassword = "pass1234"
+	)
 
-	validPassword := "pass1234"
-	testUser, _ := auth.NewUser("test@gmail.com", validPassword)
+	testPEM := generateTestRSAKeyPEM(t)
+
+	tokenService, err := auth.NewTokenService(
+		testPEM,
+		15*time.Minute,
+		24*time.Hour,
+	)
+	require.NoError(t, err)
+
+	testUser, err := auth.NewUser(email, validPassword)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name       string
 		input      LoginInput
-		setupMocks func(users *mockUserRepository, tokens *mockTokenRepository)
+		setupMocks func(*MockUserRepository, *MockTokenRepository)
 		wantErr    error
 	}{
 		{
-			name:  "user not found",
-			input: LoginInput{Email: "wrong@gmail.com", Password: "123"},
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				users.findByEmailFn = func(ctx context.Context, email string) (auth.User, error) {
-					return auth.User{}, auth.ErrUserNotFound
-				}
+			name: "user not found",
+			input: LoginInput{
+				Email:    "unknown@gmail.com",
+				Password: validPassword,
+			},
+			setupMocks: func(users *MockUserRepository, _ *MockTokenRepository) {
+				users.EXPECT().
+					FindByEmail(mock.Anything, "unknown@gmail.com").
+					Return(auth.User{}, auth.ErrUserNotFound)
 			},
 			wantErr: auth.ErrUserNotFound,
 		},
 		{
-			name:  "invalid password",
-			input: LoginInput{Email: "test@gmail.com", Password: "pass4321"},
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				users.findByEmailFn = func(ctx context.Context, email string) (auth.User, error) {
-					return testUser, nil
-				}
+			name: "invalid password",
+			input: LoginInput{
+				Email:    email,
+				Password: "wrong-password",
+			},
+			setupMocks: func(users *MockUserRepository, _ *MockTokenRepository) {
+				users.EXPECT().
+					FindByEmail(mock.Anything, email).
+					Return(testUser, nil)
 			},
 			wantErr: auth.ErrPasswordInvalid,
 		},
 		{
-			name:  "save refresh failed",
-			input: LoginInput{Email: "test@gmail.com", Password: "pass1234"},
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				users.findByEmailFn = func(ctx context.Context, email string) (auth.User, error) {
-					return testUser, nil
-				}
-				tokens.saveRefreshFn = func(ctx context.Context, entry auth.RefreshEntry) error {
-					return errors.New("database connection lost")
-				}
+			name: "refresh token persistence failed",
+			input: LoginInput{
+				Email:    email,
+				Password: validPassword,
+			},
+			setupMocks: func(users *MockUserRepository, tokens *MockTokenRepository) {
+				users.EXPECT().
+					FindByEmail(mock.Anything, email).
+					Return(testUser, nil)
+
+				tokens.EXPECT().
+					SaveRefresh(mock.Anything, mock.Anything).
+					Return(errors.New("database connection lost"))
 			},
 			wantErr: ErrInternal,
 		},
 		{
-			name:  "success",
-			input: LoginInput{Email: "test@gmail.com", Password: "pass1234"},
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				users.findByEmailFn = func(ctx context.Context, email string) (auth.User, error) {
-					return testUser, nil
-				}
-				tokens.saveRefreshFn = func(ctx context.Context, entry auth.RefreshEntry) error {
-					return nil
-				}
+			name: "success",
+			input: LoginInput{
+				Email:    email,
+				Password: validPassword,
+			},
+			setupMocks: func(users *MockUserRepository, tokens *MockTokenRepository) {
+				users.EXPECT().
+					FindByEmail(mock.Anything, email).
+					Return(testUser, nil)
+
+				tokens.EXPECT().
+					SaveRefresh(
+						mock.Anything,
+						mock.MatchedBy(func(entry auth.RefreshEntry) bool {
+							return entry.UserID == testUser.ID
+						}),
+					).
+					Return(nil)
 			},
 			wantErr: nil,
 		},
@@ -72,20 +104,16 @@ func TestLoginUseCase_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			usersMock := &mockUserRepository{}
-			tokensMock := &mockTokenRepository{}
+			users := NewMockUserRepository(t)
+			tokens := NewMockTokenRepository(t)
 
-			if tt.setupMocks != nil {
-				tt.setupMocks(usersMock, tokensMock)
-			}
+			tt.setupMocks(users, tokens)
 
-			uc := NewLoginUseCase(usersMock, tokensMock, tokenSvc)
+			uc := NewLoginUseCase(users, tokens, tokenService)
 
 			_, err := uc.Execute(context.Background(), tt.input)
 
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("Execute() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
