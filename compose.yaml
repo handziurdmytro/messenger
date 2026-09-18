@@ -88,23 +88,20 @@ services:
     entrypoint: [ "/bin/sh", "/init-kafka.sh" ]
 
   api-gateway:
-    build:
-      context: .
-      dockerfile: build/Dockerfile
-      args:
-        SERVICE: api-gateway
+    image: nginx:alpine
     depends_on:
       auth-service:
         condition: service_started
+      user-service:
+        condition: service_started
+      chat-service:
+        condition: service_started
+      message-service:
+        condition: service_started
     ports:
-      - "2901:2901"
-    environment:
-      SERVER_PORT: 2901
-      AUTH_SERVICE_URL: http://auth-service:2902
-      ROUTES_PATH: /config/routes.yaml
-      LOG_LEVEL: INFO
+      - "80:80"
     volumes:
-      - ./services/api-gateway/config:/config
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks: [ messenger-net ]
     labels:
       - "logs.sink=operational"
