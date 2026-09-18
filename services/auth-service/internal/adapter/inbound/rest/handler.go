@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/usecase"
@@ -175,4 +176,30 @@ func (h *Handler) JWKS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-pem-file")
 	w.WriteHeader(http.StatusOK)
 	w.Write(pubPEM)
+}
+
+func extractToken(r *http.Request) string {
+	bearer := r.Header.Get("Authorization")
+	if after, ok := strings.CutPrefix(bearer, "Bearer "); ok {
+		return after
+	}
+	return r.URL.Query().Get("token")
+}
+
+func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
+	// Беремо токен з Authorization заголовка (як ти робив у gateway)
+	token := extractToken(r)
+	if token == "" {
+		http.Error(w, "missing token", http.StatusUnauthorized)
+		return
+	}
+
+	identity, err := h.tokenSvc.Authenticate(auth.Token(token)) // У тебе вже є цей метод
+	if err != nil {
+		http.Error(w, "invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("X-User-ID", string(identity.UserID))
+	w.WriteHeader(http.StatusOK)
 }

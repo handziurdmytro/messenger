@@ -27,6 +27,7 @@ func NewServer(
 	h := NewHandler(register, login, refresh, tokenSvc)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /validate", h.Validate)
 	mux.HandleFunc("POST /register", h.Register)
 	mux.HandleFunc("POST /login", h.Login)
 	mux.HandleFunc("POST /refresh", h.Refresh)
