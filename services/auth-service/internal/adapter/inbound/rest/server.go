@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"time"
 
+	_ "github.com/handziurdmytro/messenger/auth-service/docs"
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/logger"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type Server struct {
@@ -32,6 +34,9 @@ func NewServer(
 	mux.HandleFunc("POST /login", h.Login)
 	mux.HandleFunc("POST /refresh", h.Refresh)
 	mux.HandleFunc("GET /.well-known/jwks.pem", h.JWKS)
+	mux.HandleFunc("GET /swagger/", httpSwagger.Handler(
+		httpSwagger.URL("/api/auth/swagger/doc.json"),
+	))
 
 	handler := logger.HTTPMiddleware(baseLogger)(mux)
 

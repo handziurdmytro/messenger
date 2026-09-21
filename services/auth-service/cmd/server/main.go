@@ -15,6 +15,15 @@ import (
 	"github.com/handziurdmytro/messenger/pkg/runner"
 )
 
+// @title           Auth Service API
+// @version         1.0
+// @description     Authentication and authorization service for messenger.
+// @host            localhost:2901
+// @BasePath 		/api/auth
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
 func main() {
 	os.Exit(run())
 }

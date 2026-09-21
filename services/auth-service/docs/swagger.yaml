@@ -1,0 +1,186 @@
+basePath: /api/auth
+definitions:
+  rest.errorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  rest.refreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  rest.registerRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  rest.tokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+host: localhost:2901
+info:
+  contact: {}
+  description: Authentication and authorization service for messenger.
+  title: Auth Service API
+  version: "1.0"
+paths:
+  /.well-known/jwks.pem:
+    get:
+      description: Returns the public key in PEM format for external token validation
+      produces:
+      - application/x-pem-file
+      responses:
+        "200":
+          description: Public key in PEM format
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Get public keys (JWKS)
+      tags:
+      - auth
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Validates credentials and returns a pair of tokens
+      parameters:
+      - description: Login data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.registerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.tokenResponse'
+        "400":
+          description: Invalid request data
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Invalid email or password
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: User login
+      tags:
+      - auth
+  /refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generates a new pair of tokens based on a valid Refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.refreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.tokenResponse'
+        "400":
+          description: Invalid request data
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Invalid or expired token
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Refresh Access token
+      tags:
+      - auth
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user by email and password and returns tokens
+      parameters:
+      - description: Registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.registerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/rest.tokenResponse'
+        "400":
+          description: Invalid request data or password too short
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "409":
+          description: Email already taken
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: User registration
+      tags:
+      - auth
+  /validate:
+    get:
+      description: Validates the access token and returns status with user ID
+      parameters:
+      - description: Token (passed if no Bearer header is present)
+        in: query
+        name: token
+        type: string
+      responses:
+        "200":
+          description: Token is valid
+          headers:
+            X-User-ID:
+              description: ID of the validated user
+              type: string
+          schema:
+            type: string
+        "401":
+          description: Missing or invalid token
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Validate Access token
+      tags:
+      - auth
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

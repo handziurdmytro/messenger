@@ -45,6 +45,22 @@ type tokenResponse struct {
 	ExpiresAt    string `json:"expires_at"`
 }
 
+type refreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// Register godoc
+// @Summary      User registration
+// @Description  Creates a new user by email and password and returns tokens
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body registerRequest true "Registration data"
+// @Success      201 {object} tokenResponse
+// @Failure      400 {object} errorResponse "Invalid request data or password too short"
+// @Failure      409 {object} errorResponse "Email already taken"
+// @Failure      500 {object} errorResponse "Internal server error"
+// @Router       /register [post]
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	log := logger.WithComponent(logger.FromContext(r.Context()), "auth")
 
@@ -82,6 +98,18 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Login godoc
+// @Summary      User login
+// @Description  Validates credentials and returns a pair of tokens
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body registerRequest true "Login data"
+// @Success      200 {object} tokenResponse
+// @Failure      400 {object} errorResponse "Invalid request data"
+// @Failure      401 {object} errorResponse "Invalid email or password"
+// @Failure      500 {object} errorResponse "Internal server error"
+// @Router       /login [post]
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	log := logger.WithComponent(logger.FromContext(r.Context()), "auth")
 
@@ -117,12 +145,22 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Refresh godoc
+// @Summary      Refresh Access token
+// @Description  Generates a new pair of tokens based on a valid Refresh token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body refreshRequest true "Refresh token"
+// @Success      200 {object} tokenResponse
+// @Failure      400 {object} errorResponse "Invalid request data"
+// @Failure      401 {object} errorResponse "Invalid or expired token"
+// @Failure      500 {object} errorResponse "Internal server error"
+// @Router       /refresh [post]
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	log := logger.WithComponent(logger.FromContext(r.Context()), "auth")
 
-	var req struct {
-		RefreshToken string `json:"refresh_token"`
-	}
+	var req refreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Warn("refresh: invalid request body", logger.KeyError, err)
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -151,6 +189,14 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// JWKS godoc
+// @Summary      Get public keys (JWKS)
+// @Description  Returns the public key in PEM format for external token validation
+// @Tags         auth
+// @Produce      application/x-pem-file
+// @Success      200 {string} string "Public key in PEM format"
+// @Failure      500 {object} errorResponse "Internal server error"
+// @Router       /.well-known/jwks.pem [get]
 func (h *Handler) JWKS(w http.ResponseWriter, r *http.Request) {
 	log := logger.WithComponent(logger.FromContext(r.Context()), "auth")
 
@@ -186,15 +232,24 @@ func extractToken(r *http.Request) string {
 	return r.URL.Query().Get("token")
 }
 
+// Validate godoc
+// @Summary      Validate Access token
+// @Description  Validates the access token and returns status with user ID
+// @Tags         auth
+// @Security     BearerAuth
+// @Param        token query string false "Token (passed if no Bearer header is present)"
+// @Success      200 {string} string "Token is valid"
+// @Failure      401 {string} string "Missing or invalid token"
+// @Header       200 {string} X-User-ID "ID of the validated user"
+// @Router       /validate [get]
 func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
-	// Беремо токен з Authorization заголовка (як ти робив у gateway)
 	token := extractToken(r)
 	if token == "" {
 		http.Error(w, "missing token", http.StatusUnauthorized)
 		return
 	}
 
-	identity, err := h.tokenSvc.Authenticate(auth.Token(token)) // У тебе вже є цей метод
+	identity, err := h.tokenSvc.Authenticate(auth.Token(token))
 	if err != nil {
 		http.Error(w, "invalid token", http.StatusUnauthorized)
 		return
