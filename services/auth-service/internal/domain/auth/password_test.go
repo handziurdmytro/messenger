@@ -1,9 +1,11 @@
 package auth
 
 import (
-	"errors"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHashPassword(t *testing.T) {
@@ -12,17 +14,26 @@ func TestHashPassword(t *testing.T) {
 		plain   string
 		wantErr error
 	}{
-		{"success", "pass1234", nil},
-		{"short password", "123", ErrPasswordTooShort},
+		{"success", "pass123456", nil},
+		{"shortest valid", "pass1234", nil},
+		{"longest valid", strings.Repeat("a", 72), nil},
+		{"short password", "1234567", ErrPasswordTooShort},
 		{"long password", strings.Repeat("a", 73), ErrPasswordTooLong},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := HashPassword(tt.plain)
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("HashPassword() error = %v, wantErr %v", err, tt.wantErr)
+			hash, err := HashPassword(tt.plain)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Empty(t, hash)
+				return
 			}
+			require.NoError(t, err)
+			require.NotEmpty(t, hash)
+
+			assert.NotEqual(t, tt.plain, string(hash))
+			assert.NoError(t, CheckPassword(tt.plain, hash))
 		})
 	}
 }
@@ -30,9 +41,7 @@ func TestHashPassword(t *testing.T) {
 func TestCheckPassword(t *testing.T) {
 	validPassword := "pass1234"
 	validHash, err := HashPassword(validPassword)
-	if err != nil {
-		t.Fatalf("HashPassword() setup error = %v, wantErr nil", err)
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		name    string
@@ -42,14 +51,17 @@ func TestCheckPassword(t *testing.T) {
 	}{
 		{"success", validPassword, validHash, nil},
 		{"invalid password", "wrongpass", validHash, ErrPasswordInvalid},
+		{"invalid hash", validPassword, PasswordHash("garbage"), ErrPasswordInvalid},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := CheckPassword(tt.plain, tt.hash)
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("CheckPassword() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
 			}
+			require.NoError(t, err)
 		})
 	}
 }

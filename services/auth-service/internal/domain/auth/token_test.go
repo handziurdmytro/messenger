@@ -5,21 +5,23 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func generateTestRSAKeyPEM(t *testing.T) []byte {
 	t.Helper()
+
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("rsa.GenerateKey() setup error = %v, wantErr nil", err)
-	}
-	privDER := x509.MarshalPKCS1PrivateKey(priv)
+	require.NoError(t, err)
+
 	return pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
-		Bytes: privDER,
+		Bytes: x509.MarshalPKCS1PrivateKey(priv),
 	})
 }
 
@@ -35,10 +37,9 @@ func TestRefreshEntry_IsExpired(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := RefreshEntry{ExpiresAt: tt.expiresAt}
-			if got := e.IsExpired(); got != tt.want {
-				t.Errorf("RefreshEntry.IsExpired() = %v, want %v", got, tt.want)
-			}
+			entry := RefreshEntry{ExpiresAt: tt.expiresAt}
+
+			assert.Equal(t, tt.want, entry.IsExpired())
 		})
 	}
 }
@@ -47,22 +48,16 @@ func TestNewRefreshEntry(t *testing.T) {
 	userID := UserID("test-user-id")
 	ttl := 24 * time.Hour
 
+	before := time.Now()
 	entry := NewRefreshEntry(userID, ttl)
+	after := time.Now()
 
-	if entry.ID == "" {
-		t.Errorf("NewRefreshEntry().ID = %v, want non-empty", entry.ID)
-	}
-	if entry.UserID != userID {
-		t.Errorf("NewRefreshEntry().UserID = %v, want %v", entry.UserID, userID)
-	}
-	if entry.Token == "" {
-		t.Errorf("NewRefreshEntry().Token = %v, want non-empty", entry.Token)
-	}
+	require.NotEmpty(t, entry.ID)
+	require.NotEmpty(t, entry.Token)
 
-	expectedExpires := time.Now().UTC().Add(ttl)
-	if diff := entry.ExpiresAt.Sub(expectedExpires); diff > time.Second || diff < -time.Second {
-		t.Errorf("NewRefreshEntry().ExpiresAt = %v, want %v", entry.ExpiresAt, expectedExpires)
-	}
+	assert.Equal(t, userID, entry.UserID)
+	assert.WithinRange(t, entry.CreatedAt, before, after)
+	assert.Equal(t, entry.CreatedAt.Add(ttl), entry.ExpiresAt)
 }
 
 func TestNewTokenService(t *testing.T) {
@@ -79,41 +74,158 @@ func TestNewTokenService(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewTokenService(tt.pem, time.Minute, time.Hour)
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("NewTokenService() error = %v, wantErr %v", err, tt.wantErr)
+			svc, err := NewTokenService(
+				tt.pem,
+				15*time.Minute,
+				24*time.Hour,
+			)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, svc)
+				return
 			}
+
+			require.NoError(t, err)
+			assert.NotNil(t, svc)
 		})
 	}
 }
 
 func TestTokenService_Issue(t *testing.T) {
-	validPEM := generateTestRSAKeyPEM(t)
-	svc, err := NewTokenService(validPEM, 15*time.Minute, 24*time.Hour)
-	if err != nil {
-		t.Fatalf("NewTokenService() setup error = %v, wantErr nil", err)
-	}
+	const (
+		accessTTL  = 15 * time.Minute
+		refreshTTL = 24 * time.Hour
+	)
+
+	svc, err := NewTokenService(
+		generateTestRSAKeyPEM(t),
+		accessTTL,
+		refreshTTL,
+	)
+	require.NoError(t, err)
 
 	user := User{
 		ID:    UserID("test-id"),
 		Email: "test@example.com",
 	}
 
+	before := time.Now()
 	pair, refresh, err := svc.Issue(user)
+	after := time.Now()
 
-	if err != nil {
-		t.Fatalf("TokenService.Issue() error = %v, wantErr nil", err)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, pair.Access)
+	require.NotEmpty(t, pair.Refresh)
+
+	assert.Equal(t, refresh.Token, pair.Refresh)
+	assert.Equal(t, user.ID, refresh.UserID)
+
+	assert.WithinRange(
+		t,
+		pair.ExpiresAt,
+		before.Add(accessTTL),
+		after.Add(accessTTL),
+	)
+
+	assert.WithinRange(t, refresh.CreatedAt, before, after)
+	assert.Equal(t, refresh.CreatedAt.Add(refreshTTL), refresh.ExpiresAt)
+}
+
+func TestTokenService_Authenticate(t *testing.T) {
+	svc, err := NewTokenService(
+		generateTestRSAKeyPEM(t),
+		15*time.Minute,
+		24*time.Hour,
+	)
+	require.NoError(t, err)
+
+	user := User{
+		ID:    UserID("test-id"),
+		Email: "test@example.com",
 	}
-	if pair.Access == "" {
-		t.Errorf("TokenService.Issue().Access = %v, want non-empty", pair.Access)
+
+	pair, _, err := svc.Issue(user)
+	require.NoError(t, err)
+
+	expiredJWT := jwt.NewWithClaims(jwt.SigningMethodRS256, CustomClaims{
+		Email:     user.Email,
+		Subject:   string(user.ID),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(-time.Minute)),
+	})
+
+	expiredToken, err := expiredJWT.SignedString(svc.privateKey)
+	require.NoError(t, err)
+
+	otherPEM := generateTestRSAKeyPEM(t)
+	otherSvc, err := NewTokenService(otherPEM, time.Minute, time.Hour)
+	require.NoError(t, err)
+
+	invalidJWT := jwt.NewWithClaims(jwt.SigningMethodRS256, CustomClaims{
+		Email:     user.Email,
+		Subject:   string(user.ID),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+	})
+
+	invalidToken, err := invalidJWT.SignedString(otherSvc.privateKey)
+	require.NoError(t, err)
+
+	wrongAlgorithmJWT := jwt.NewWithClaims(
+		jwt.SigningMethodHS256,
+		jwt.MapClaims{
+			"sub": string(user.ID),
+			"exp": time.Now().Add(time.Hour).Unix(),
+		},
+	)
+
+	wrongAlgorithmToken, err := wrongAlgorithmJWT.SignedString([]byte("test-secret"))
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		token   Token
+		wantErr error
+	}{
+		{"success", Token(pair.Access), nil},
+		{"malformed", Token("invalid token"), ErrTokenMalformed},
+		{"expired", Token(expiredToken), ErrTokenExpired},
+		{"invalid signature", Token(invalidToken), ErrTokenInvalid},
+		{"wrong algorithm", Token(wrongAlgorithmToken), ErrTokenInvalid},
 	}
-	if pair.Refresh == "" {
-		t.Errorf("TokenService.Issue().Refresh = %v, want non-empty", pair.Refresh)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			identity, err := svc.Authenticate(tt.token)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Equal(t, Identity{}, identity)
+				return
+			}
+
+			require.NoError(t, err)
+
+			assert.Equal(t, string(user.ID), identity.UserID)
+			assert.Equal(t, user.Email, identity.Email)
+			assert.Equal(t, pair.ExpiresAt.Unix(), identity.ExpiresAt.Unix())
+		})
 	}
-	if refresh.Token != pair.Refresh {
-		t.Errorf("TokenService.Issue() refresh token mismatch: entry = %v, pair = %v", refresh.Token, pair.Refresh)
-	}
-	if refresh.UserID != user.ID {
-		t.Errorf("TokenService.Issue().RefreshEntry.UserID = %v, want %v", refresh.UserID, user.ID)
-	}
+}
+
+func TestTokenService_PublicKeyPEM(t *testing.T) {
+	svc, err := NewTokenService(
+		generateTestRSAKeyPEM(t),
+		15*time.Minute,
+		24*time.Hour,
+	)
+	require.NoError(t, err)
+
+	publicKey, err := svc.PublicKeyPEM()
+
+	require.NoError(t, err)
+	require.NotNil(t, publicKey)
+
+	assert.Equal(t, svc.privateKey.PublicKey.N, publicKey.N)
+	assert.Equal(t, svc.privateKey.PublicKey.E, publicKey.E)
 }

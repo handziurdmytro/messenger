@@ -1,9 +1,12 @@
 package auth
 
 import (
-	"errors"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewUser(t *testing.T) {
@@ -16,28 +19,30 @@ func TestNewUser(t *testing.T) {
 		{"success", "user@gmail.com", "pass1234", nil},
 		{"empty email", "", "pass1234", ErrEmailEmpty},
 		{"invalid email", "invalid-email-format", "pass1234", ErrEmailInvalid},
-		{"short password", "user@gmail.com", "123", ErrPasswordTooShort},
+		{"short password", "user@gmail.com", "1234567", ErrPasswordTooShort},
+		{"long password", "user@gmail.com", strings.Repeat("a", 73), ErrPasswordTooLong},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			before := time.Now()
 			user, err := NewUser(tt.email, tt.plainPassword)
+			after := time.Now()
 
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("NewUser() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.Equal(t, User{}, user)
+				return
 			}
 
-			if tt.wantErr == nil {
-				if user.ID == "" {
-					t.Errorf("NewUser().ID = %v, want non-empty", user.ID)
-				}
-				if user.Email != tt.email {
-					t.Errorf("NewUser().Email = %v, want %v", user.Email, tt.email)
-				}
-				if time.Since(user.CreatedAt) > time.Second {
-					t.Errorf("NewUser().CreatedAt = %v, want recent time", user.CreatedAt)
-				}
-			}
+			require.NoError(t, err)
+			require.NotEqual(t, User{}, user)
+			require.NotEmpty(t, user.ID)
+
+			assert.Equal(t, tt.email, user.Email)
+			assert.WithinRange(t, user.CreatedAt, before, after)
+			assert.NotEqual(t, tt.plainPassword, string(user.PasswordHash))
+			assert.NoError(t, CheckPassword(tt.plainPassword, user.PasswordHash))
 		})
 	}
 }
