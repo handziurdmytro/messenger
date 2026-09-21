@@ -7,108 +7,187 @@ import (
 	"time"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRegisterUseCase_Execute(t *testing.T) {
-	testPEM := generateTestRSAKeyPEM(t)
-	tokenSvc, _ := auth.NewTokenService(testPEM, 15*time.Minute, 24*time.Hour)
+	const (
+		email    = "test@gmail.com"
+		password = "pass1234"
+	)
+
+	tokenSvc, err := auth.NewTokenService(
+		generateTestRSAKeyPEM(t),
+		15*time.Minute,
+		24*time.Hour,
+	)
+	require.NoError(t, err)
+
+	validInput := RegisterInput{
+		Email:    email,
+		Password: password,
+	}
 
 	tests := []struct {
 		name       string
 		input      RegisterInput
-		setupMocks func(users *mockUserRepository, tokens *mockTokenRepository, publisher *mockEventPublisher)
-		wantErr    error
+		setupMocks func(
+			*MockUserRepository,
+			*MockTokenRepository,
+			*MockEventPublisher,
+		)
+		wantErr error
 	}{
 		{
-			name:  "success",
-			input: RegisterInput{Email: "test@gmail.com", Password: "pass1234"},
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository, publisher *mockEventPublisher) {
-				users.saveFn = func(ctx context.Context, user auth.User) error {
-					return nil
-				}
-				tokens.saveRefreshFn = func(ctx context.Context, entry auth.RefreshEntry) error {
-					return nil
-				}
-				publisher.publishUserCreatedFn = func(ctx context.Context, user auth.User) error {
-					return nil
-				}
+			name: "invalid input",
+			input: RegisterInput{
+				Email:    email,
+				Password: "123",
 			},
-			wantErr: nil,
-		},
-		{
-			name:       "invalid input (short password)",
-			input:      RegisterInput{Email: "test@gmail.com", Password: "123"},
-			setupMocks: nil,
-			wantErr:    auth.ErrPasswordTooShort,
+			wantErr: auth.ErrPasswordTooShort,
 		},
 		{
 			name:  "email already taken",
-			input: RegisterInput{Email: "taken@gmail.com", Password: "pass1234"},
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository, publisher *mockEventPublisher) {
-				users.saveFn = func(ctx context.Context, user auth.User) error {
-					return auth.ErrEmailTaken
-				}
+			input: validInput,
+			setupMocks: func(
+				users *MockUserRepository,
+				_ *MockTokenRepository,
+				_ *MockEventPublisher,
+			) {
+				users.EXPECT().
+					Save(mock.Anything, mock.Anything).
+					Return(auth.ErrEmailTaken)
 			},
 			wantErr: auth.ErrEmailTaken,
 		},
 		{
-			name:  "database fail on save user",
-			input: RegisterInput{Email: "test@gmail.com", Password: "pass1234"},
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository, publisher *mockEventPublisher) {
-				users.saveFn = func(ctx context.Context, user auth.User) error {
-					return errors.New("db connection lost")
-				}
+			name:  "save user failed",
+			input: validInput,
+			setupMocks: func(
+				users *MockUserRepository,
+				_ *MockTokenRepository,
+				_ *MockEventPublisher,
+			) {
+				users.EXPECT().
+					Save(mock.Anything, mock.Anything).
+					Return(errors.New("database unavailable"))
 			},
 			wantErr: ErrInternal,
 		},
 		{
-			name:  "database fail on save refresh",
-			input: RegisterInput{Email: "test@gmail.com", Password: "pass1234"},
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository, publisher *mockEventPublisher) {
-				users.saveFn = func(ctx context.Context, user auth.User) error {
-					return nil
-				}
-				tokens.saveRefreshFn = func(ctx context.Context, entry auth.RefreshEntry) error {
-					return errors.New("redis timeout")
-				}
+			name:  "save refresh failed",
+			input: validInput,
+			setupMocks: func(
+				users *MockUserRepository,
+				tokens *MockTokenRepository,
+				_ *MockEventPublisher,
+			) {
+				users.EXPECT().
+					Save(mock.Anything, mock.Anything).
+					Return(nil)
+
+				tokens.EXPECT().
+					SaveRefresh(mock.Anything, mock.Anything).
+					Return(errors.New("database unavailable"))
 			},
 			wantErr: ErrInternal,
 		},
 		{
-			name:  "publisher fails but usecase succeeds",
-			input: RegisterInput{Email: "test@gmail.com", Password: "pass1234"},
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository, publisher *mockEventPublisher) {
-				users.saveFn = func(ctx context.Context, user auth.User) error {
-					return nil
-				}
-				tokens.saveRefreshFn = func(ctx context.Context, entry auth.RefreshEntry) error {
-					return nil
-				}
-				publisher.publishUserCreatedFn = func(ctx context.Context, user auth.User) error {
-					return errors.New("kafka broker down")
-				}
+			name:  "publisher failed but registration succeeds",
+			input: validInput,
+			setupMocks: func(
+				users *MockUserRepository,
+				tokens *MockTokenRepository,
+				publisher *MockEventPublisher,
+			) {
+				users.EXPECT().
+					Save(mock.Anything, mock.Anything).
+					Return(nil)
+
+				tokens.EXPECT().
+					SaveRefresh(mock.Anything, mock.Anything).
+					Return(nil)
+
+				publisher.EXPECT().
+					PublishUserCreated(mock.Anything, mock.Anything).
+					Return(errors.New("kafka unavailable"))
 			},
-			wantErr: nil,
+		},
+		{
+			name:  "success",
+			input: validInput,
+			setupMocks: func(
+				users *MockUserRepository,
+				tokens *MockTokenRepository,
+				publisher *MockEventPublisher,
+			) {
+				users.EXPECT().
+					Save(
+						mock.Anything,
+						mock.MatchedBy(func(user auth.User) bool {
+							return user.ID != "" &&
+								user.Email == email &&
+								auth.CheckPassword(password, user.PasswordHash) == nil
+						}),
+					).
+					Return(nil)
+
+				tokens.EXPECT().
+					SaveRefresh(
+						mock.Anything,
+						mock.MatchedBy(func(entry auth.RefreshEntry) bool {
+							return entry.UserID != "" &&
+								entry.Token != ""
+						}),
+					).
+					Return(nil)
+
+				publisher.EXPECT().
+					PublishUserCreated(
+						mock.Anything,
+						mock.MatchedBy(func(user auth.User) bool {
+							return user.ID != "" &&
+								user.Email == email
+						}),
+					).
+					Return(nil)
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			usersMock := &mockUserRepository{}
-			tokensMock := &mockTokenRepository{}
-			publisherMock := &mockEventPublisher{}
+			users := NewMockUserRepository(t)
+			tokens := NewMockTokenRepository(t)
+			publisher := NewMockEventPublisher(t)
 
 			if tt.setupMocks != nil {
-				tt.setupMocks(usersMock, tokensMock, publisherMock)
+				tt.setupMocks(users, tokens, publisher)
 			}
 
-			uc := NewRegisterUseCase(usersMock, tokensMock, tokenSvc, publisherMock)
+			uc := NewRegisterUseCase(
+				users,
+				tokens,
+				tokenSvc,
+				publisher,
+			)
 
-			_, err := uc.Execute(context.Background(), tt.input)
+			output, err := uc.Execute(context.Background(), tt.input)
 
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Equal(t, RegisterOutput{}, output)
+				return
 			}
+
+			require.NoError(t, err)
+
+			assert.NotEmpty(t, output.UserID)
+			assert.NotEmpty(t, output.Tokens.Access)
+			assert.NotEmpty(t, output.Tokens.Refresh)
+			assert.False(t, output.Tokens.ExpiresAt.IsZero())
 		})
 	}
 }

@@ -7,146 +7,173 @@ import (
 	"time"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRefreshUseCase_Execute(t *testing.T) {
+	const (
+		email    = "valid@gmail.com"
+		password = "pass1234"
+	)
 
-	testPEM := generateTestRSAKeyPEM(t)
-	tokenSvc, _ := auth.NewTokenService(testPEM, 15*time.Minute, 24*time.Hour)
+	oldToken := auth.RefreshToken("old-refresh-token")
+
+	tokenSvc, err := auth.NewTokenService(
+		generateTestRSAKeyPEM(t),
+		15*time.Minute,
+		24*time.Hour,
+	)
+	require.NoError(t, err)
+
+	user, err := auth.NewUser(email, password)
+	require.NoError(t, err)
+
+	activeEntry := auth.RefreshEntry{
+		UserID:    user.ID,
+		Token:     oldToken,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(time.Hour),
+	}
+
+	expiredEntry := auth.RefreshEntry{
+		UserID:    user.ID,
+		Token:     oldToken,
+		CreatedAt: time.Now().Add(-2 * time.Hour),
+		ExpiresAt: time.Now().Add(-time.Hour),
+	}
 
 	tests := []struct {
 		name       string
-		token      auth.RefreshToken
-		setupMocks func(users *mockUserRepository, tokens *mockTokenRepository)
+		setupMocks func(*MockUserRepository, *MockTokenRepository)
 		wantErr    error
 	}{
 		{
-			name:  "success",
-			token: "valid-token",
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				users.findByIDFn = func(ctx context.Context, id auth.UserID) (auth.User, error) {
-					return auth.User{}, nil
-				}
-
-				tokens.findRefreshFn = func(ctx context.Context, token auth.RefreshToken) (auth.RefreshEntry, error) {
-					return auth.RefreshEntry{
-						ExpiresAt: time.Now().Add(time.Minute),
-						CreatedAt: time.Now(),
-					}, nil
-				}
-
-				tokens.saveRefreshFn = func(ctx context.Context, entry auth.RefreshEntry) error {
-					return nil
-				}
-
-				tokens.deleteRefreshFn = func(ctx context.Context, token auth.RefreshToken) error {
-					return nil
-				}
-			},
-			wantErr: nil,
-		},
-		{
-			name:  "invalid refresh",
-			token: "valid-token",
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				tokens.findRefreshFn = func(ctx context.Context, token auth.RefreshToken) (auth.RefreshEntry, error) {
-					return auth.RefreshEntry{}, errors.New("database connection lost")
-				}
+			name: "invalid refresh token",
+			setupMocks: func(_ *MockUserRepository, tokens *MockTokenRepository) {
+				tokens.EXPECT().
+					FindRefresh(mock.Anything, oldToken).
+					Return(auth.RefreshEntry{}, auth.ErrRefreshInvalid)
 			},
 			wantErr: auth.ErrRefreshInvalid,
 		},
 		{
-			name:  "expired",
-			token: "valid-token",
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				tokens.findRefreshFn = func(ctx context.Context, token auth.RefreshToken) (auth.RefreshEntry, error) {
-					return auth.RefreshEntry{
-						CreatedAt: time.Now(),
-						ExpiresAt: time.Now().Add(-time.Minute),
-					}, nil
-				}
-				tokens.deleteRefreshFn = func(ctx context.Context, token auth.RefreshToken) error {
-					return nil
-				}
+			name: "expired refresh token",
+			setupMocks: func(_ *MockUserRepository, tokens *MockTokenRepository) {
+				tokens.EXPECT().
+					FindRefresh(mock.Anything, oldToken).
+					Return(expiredEntry, nil)
+
+				tokens.EXPECT().
+					DeleteRefresh(mock.Anything, oldToken).
+					Return(nil)
 			},
 			wantErr: auth.ErrRefreshExpired,
 		},
 		{
-			name:  "fail delete refresh",
-			token: "valid-token",
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				tokens.findRefreshFn = func(ctx context.Context, token auth.RefreshToken) (auth.RefreshEntry, error) {
-					return auth.RefreshEntry{
-						ExpiresAt: time.Now().Add(time.Minute),
-						CreatedAt: time.Now(),
-					}, nil
-				}
-				users.findByIDFn = func(ctx context.Context, id auth.UserID) (auth.User, error) {
-					return auth.User{}, nil
-				}
-				tokens.deleteRefreshFn = func(ctx context.Context, token auth.RefreshToken) error {
-					return errors.New("database connection lost")
-				}
-			},
-			wantErr: ErrInternal,
-		},
-		{
-			name:  "user not found",
-			token: "valid-token",
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				tokens.findRefreshFn = func(ctx context.Context, token auth.RefreshToken) (auth.RefreshEntry, error) {
-					return auth.RefreshEntry{
-						ExpiresAt: time.Now().Add(time.Minute),
-						CreatedAt: time.Now(),
-					}, nil
-				}
-				tokens.deleteRefreshFn = func(ctx context.Context, token auth.RefreshToken) error {
-					return nil
-				}
-				users.findByIDFn = func(ctx context.Context, id auth.UserID) (auth.User, error) {
-					return auth.User{}, auth.ErrUserNotFound
-				}
+			name: "user not found",
+			setupMocks: func(users *MockUserRepository, tokens *MockTokenRepository) {
+				tokens.EXPECT().
+					FindRefresh(mock.Anything, oldToken).
+					Return(activeEntry, nil)
+
+				users.EXPECT().
+					FindByID(mock.Anything, user.ID).
+					Return(auth.User{}, auth.ErrUserNotFound)
 			},
 			wantErr: auth.ErrUserNotFound,
 		},
 		{
-			name:  "fail save refresh",
-			token: "valid-token",
-			setupMocks: func(users *mockUserRepository, tokens *mockTokenRepository) {
-				tokens.findRefreshFn = func(ctx context.Context, token auth.RefreshToken) (auth.RefreshEntry, error) {
-					return auth.RefreshEntry{
-						ExpiresAt: time.Now().Add(time.Minute),
-						CreatedAt: time.Now(),
-					}, nil
-				}
-				users.findByIDFn = func(ctx context.Context, id auth.UserID) (auth.User, error) {
-					return auth.User{}, nil
-				}
-				tokens.deleteRefreshFn = func(ctx context.Context, token auth.RefreshToken) error {
-					return nil
-				}
-				tokens.saveRefreshFn = func(ctx context.Context, entry auth.RefreshEntry) error {
-					return errors.New("database connection lost")
-				}
+			name: "delete refresh failed",
+			setupMocks: func(users *MockUserRepository, tokens *MockTokenRepository) {
+				tokens.EXPECT().
+					FindRefresh(mock.Anything, oldToken).
+					Return(activeEntry, nil)
+
+				users.EXPECT().
+					FindByID(mock.Anything, user.ID).
+					Return(user, nil)
+
+				tokens.EXPECT().
+					DeleteRefresh(mock.Anything, oldToken).
+					Return(errors.New("database unavailable"))
 			},
 			wantErr: ErrInternal,
 		},
+		{
+			name: "save refresh failed",
+			setupMocks: func(users *MockUserRepository, tokens *MockTokenRepository) {
+				tokens.EXPECT().
+					FindRefresh(mock.Anything, oldToken).
+					Return(activeEntry, nil)
+
+				users.EXPECT().
+					FindByID(mock.Anything, user.ID).
+					Return(user, nil)
+
+				tokens.EXPECT().
+					DeleteRefresh(mock.Anything, oldToken).
+					Return(nil)
+
+				tokens.EXPECT().
+					SaveRefresh(mock.Anything, mock.Anything).
+					Return(errors.New("database unavailable"))
+			},
+			wantErr: ErrInternal,
+		},
+		{
+			name: "success",
+			setupMocks: func(users *MockUserRepository, tokens *MockTokenRepository) {
+				tokens.EXPECT().
+					FindRefresh(mock.Anything, oldToken).
+					Return(activeEntry, nil)
+
+				users.EXPECT().
+					FindByID(mock.Anything, user.ID).
+					Return(user, nil)
+
+				tokens.EXPECT().
+					DeleteRefresh(mock.Anything, oldToken).
+					Return(nil)
+
+				tokens.EXPECT().
+					SaveRefresh(
+						mock.Anything,
+						mock.MatchedBy(func(entry auth.RefreshEntry) bool {
+							return entry.UserID == user.ID &&
+								entry.Token != "" &&
+								entry.Token != oldToken
+						}),
+					).
+					Return(nil)
+			},
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			usersMock := &mockUserRepository{}
-			tokensMock := &mockTokenRepository{}
+			users := NewMockUserRepository(t)
+			tokens := NewMockTokenRepository(t)
 
-			if tt.setupMocks != nil {
-				tt.setupMocks(usersMock, tokensMock)
+			tt.setupMocks(users, tokens)
+
+			uc := NewRefreshUseCase(users, tokens, tokenSvc)
+
+			pair, err := uc.Execute(context.Background(), oldToken)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Equal(t, auth.TokenPair{}, pair)
+				return
 			}
-			uc := NewRefreshUseCase(usersMock, tokensMock, tokenSvc)
 
-			_, err := uc.Execute(context.Background(), tt.token)
+			require.NoError(t, err)
 
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("Execute() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			assert.NotEmpty(t, pair.Access)
+			assert.NotEmpty(t, pair.Refresh)
+			assert.NotEqual(t, oldToken, pair.Refresh)
+			assert.False(t, pair.ExpiresAt.IsZero())
 		})
 	}
 }
