@@ -8,8 +8,6 @@ import (
 	"time"
 
 	_ "github.com/handziurdmytro/messenger/auth-service/docs"
-	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
-	"github.com/handziurdmytro/messenger/auth-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/logger"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
@@ -20,10 +18,10 @@ type Server struct {
 
 func NewServer(
 	port string,
-	register *usecase.RegisterUseCase,
-	login *usecase.LoginUseCase,
-	refresh *usecase.RefreshUseCase,
-	tokenSvc *auth.TokenService,
+	register RegisterService,
+	login LoginService,
+	refresh RefreshService,
+	tokenSvc TokenService,
 	baseLogger *slog.Logger,
 ) *Server {
 	h := NewHandler(register, login, refresh, tokenSvc)

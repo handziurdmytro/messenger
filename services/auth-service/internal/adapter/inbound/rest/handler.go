@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"context"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -13,18 +15,35 @@ import (
 	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
+type TokenService interface {
+	Authenticate(auth.Token) (auth.Identity, error)
+	PublicKeyPEM() (*rsa.PublicKey, error)
+}
+
+type RegisterService interface {
+	Execute(context.Context, usecase.RegisterInput) (usecase.RegisterOutput, error)
+}
+
+type LoginService interface {
+	Execute(context.Context, usecase.LoginInput) (usecase.LoginOutput, error)
+}
+
+type RefreshService interface {
+	Execute(context.Context, auth.RefreshToken) (auth.TokenPair, error)
+}
+
 type Handler struct {
-	register *usecase.RegisterUseCase
-	login    *usecase.LoginUseCase
-	refresh  *usecase.RefreshUseCase
-	tokenSvc *auth.TokenService
+	register RegisterService
+	login    LoginService
+	refresh  RefreshService
+	tokenSvc TokenService
 }
 
 func NewHandler(
-	register *usecase.RegisterUseCase,
-	login *usecase.LoginUseCase,
-	refresh *usecase.RefreshUseCase,
-	tokenSvc *auth.TokenService,
+	register RegisterService,
+	login LoginService,
+	refresh RefreshService,
+	tokenSvc TokenService,
 ) *Handler {
 	return &Handler{
 		register: register,
@@ -82,6 +101,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 			_ = httpjson.Error(w, http.StatusConflict, "email already taken")
 		case errors.Is(err, auth.ErrPasswordTooShort):
 			log.Info("register: password too short", "email", req.Email)
+			_ = httpjson.Error(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, auth.ErrPasswordTooLong):
+			log.Info("register: password too long", "email", req.Email)
 			_ = httpjson.Error(w, http.StatusBadRequest, err.Error())
 		default:
 			log.Error("register: failed", "email", req.Email, logger.KeyError, err)
