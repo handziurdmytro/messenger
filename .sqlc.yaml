@@ -15,3 +15,19 @@ sql:
         emit_empty_slices: true
         emit_interface: false
         emit_exact_table_names: false
+
+        overrides:
+          - column: "users.created_at"
+            go_type:
+              import: "time"
+              type: "Time"
+
+          - column: "refresh_tokens.created_at"
+            go_type:
+              import: "time"
+              type: "Time"
+
+          - column: "refresh_tokens.expires_at"
+            go_type:
+              import: "time"
+              type: "Time"

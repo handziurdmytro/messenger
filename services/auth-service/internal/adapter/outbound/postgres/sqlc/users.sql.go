@@ -7,8 +7,7 @@ package db
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const createUser = `-- name: CreateUser :exec
@@ -22,10 +21,10 @@ VALUES ($1, $2, $3, $4)
 `
 
 type CreateUserParams struct {
-	ID           string             `json:"id"`
-	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	ID           string    `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"password_hash"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {

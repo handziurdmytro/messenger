@@ -7,8 +7,7 @@ package db
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const createRefreshToken = `-- name: CreateRefreshToken :exec
@@ -23,11 +22,11 @@ VALUES ($1, $2, $3, $4, $5)
 `
 
 type CreateRefreshTokenParams struct {
-	ID        string             `json:"id"`
-	UserID    string             `json:"user_id"`
-	Token     string             `json:"token"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) error {
