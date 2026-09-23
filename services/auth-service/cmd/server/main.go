@@ -38,7 +38,7 @@ func run() int {
 		logger.New("auth-service", "INFO").Error("failed to load config", logger.KeyError, err)
 		return 1
 	}
-	log := logger.New("auth-service", cfg.LogLevel)
+	log := logger.New("auth-service", cfg.Log.Level)
 
 	a, err := app.New(ctx, cfg, log)
 	if err != nil {
