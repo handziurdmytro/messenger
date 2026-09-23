@@ -3,88 +3,86 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
-
+	db "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
+	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
+	"github.com/handziurdmytro/messenger/pkg/errkit"
+	"github.com/handziurdmytro/messenger/pkg/pgkit"
+	"github.com/jackc/pgx/v5"
 )
 
+const usersEmailUniqueConstraint = "users_email_unique"
+
 type UserRepository struct {
-	pool *pgxpool.Pool
+	q *db.Queries
 }
 
-func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
-	return &UserRepository{pool: pool}
+func NewUserRepository(q *db.Queries) *UserRepository {
+	return &UserRepository{q: q}
 }
 
-func (r *UserRepository) Save(ctx context.Context, user auth.User) error {
-	_, err := r.pool.Exec(ctx, `
-        INSERT INTO users (id, email, password_hash, created_at)
-        VALUES ($1, $2, $3, $4)`,
-		string(user.ID),
-		user.Email,
-		string(user.PasswordHash),
-		user.CreatedAt,
-	)
-	if err != nil {
-		if isUniqueViolation(err) {
-			return auth.ErrEmailTaken
-		}
-		return fmt.Errorf("save user: %w", err)
+func (r *UserRepository) Save(
+	ctx context.Context,
+	user auth.User,
+) error {
+	err := r.q.CreateUser(ctx, db.CreateUserParams{
+		ID:           string(user.ID),
+		Email:        user.Email,
+		PasswordHash: string(user.PasswordHash),
+		CreatedAt:    user.CreatedAt,
+	})
+	if err == nil {
+		return nil
 	}
-	return nil
+
+	if pgkit.IsConstraint(
+		err,
+		pgkit.CodeUniqueViolation,
+		usersEmailUniqueConstraint,
+	) {
+		return auth.ErrEmailTaken
+	}
+
+	return errkit.Wrap(outbound.ErrPersistence, "create user", err)
 }
 
-func (r *UserRepository) FindByEmail(ctx context.Context, email string) (auth.User, error) {
-	var id, emailVal, passwordHash string
-	var user auth.User
-
-	err := r.pool.QueryRow(ctx, `
-        SELECT id, email, password_hash, created_at
-        FROM users WHERE email = $1`,
-		email,
-	).Scan(&id, &emailVal, &passwordHash, &user.CreatedAt)
-
+func (r *UserRepository) FindByEmail(
+	ctx context.Context,
+	email string,
+) (auth.User, error) {
+	row, err := r.q.GetUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth.User{}, auth.ErrUserNotFound
 	}
 	if err != nil {
-		return auth.User{}, fmt.Errorf("find user by email: %w", err)
+		return auth.User{}, errkit.Wrap(outbound.ErrPersistence, "find user by email", err)
 	}
 
-	user.ID = auth.UserID(id)
-	user.Email = emailVal
-	user.PasswordHash = auth.PasswordHash(passwordHash)
-	return user, nil
+	return auth.User{
+		ID:           auth.UserID(row.ID),
+		Email:        row.Email,
+		PasswordHash: auth.PasswordHash(row.PasswordHash),
+		CreatedAt:    row.CreatedAt,
+	}, nil
 }
 
-func (r *UserRepository) FindByID(ctx context.Context, id auth.UserID) (auth.User, error) {
-	var userID, email, passwordHash string
-	var user auth.User
-
-	err := r.pool.QueryRow(ctx, `
-        SELECT id, email, password_hash, created_at
-        FROM users WHERE id = $1`,
-		string(id),
-	).Scan(&userID, &email, &passwordHash, &user.CreatedAt)
-
+func (r *UserRepository) FindByID(
+	ctx context.Context,
+	id auth.UserID,
+) (auth.User, error) {
+	row, err := r.q.GetUserByID(ctx, string(id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return auth.User{}, auth.ErrUserNotFound
 	}
 	if err != nil {
-		return auth.User{}, fmt.Errorf("find user by id: %w", err)
+		return auth.User{}, errkit.Wrap(outbound.ErrPersistence, "find user by id", err)
 	}
 
-	user.ID = auth.UserID(userID)
-	user.Email = email
-	user.PasswordHash = auth.PasswordHash(passwordHash)
-	return user, nil
-}
-
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+	return auth.User{
+		ID:           auth.UserID(row.ID),
+		Email:        row.Email,
+		PasswordHash: auth.PasswordHash(row.PasswordHash),
+		CreatedAt:    row.CreatedAt,
+	}, nil
 }
