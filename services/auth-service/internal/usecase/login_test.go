@@ -58,7 +58,7 @@ func TestLoginUseCase_Execute(t *testing.T) {
 					FindByEmail(mock.Anything, email).
 					Return(auth.User{}, errors.New("database unavailable"))
 			},
-			wantErr: auth.ErrUserNotFound,
+			wantErr: ErrInternal,
 		},
 		{
 			name: "invalid password",

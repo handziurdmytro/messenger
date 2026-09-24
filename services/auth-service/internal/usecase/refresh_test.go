@@ -158,7 +158,9 @@ func TestRefreshUseCase_Execute(t *testing.T) {
 
 			tt.setupMocks(users, tokens)
 
-			uc := NewRefreshUseCase(users, tokens, tokenSvc)
+			transactor := testTransactor(users, tokens)
+
+			uc := NewRefreshUseCase(users, tokens, transactor, tokenSvc)
 
 			pair, err := uc.Execute(context.Background(), oldToken)
 
@@ -169,7 +171,6 @@ func TestRefreshUseCase_Execute(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-
 			assert.NotEmpty(t, pair.Access)
 			assert.NotEmpty(t, pair.Refresh)
 			assert.NotEqual(t, oldToken, pair.Refresh)

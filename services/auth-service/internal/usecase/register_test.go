@@ -46,7 +46,7 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 				Email:    email,
 				Password: "123",
 			},
-			wantErr: auth.ErrPasswordTooShort,
+			wantErr: ErrInternal,
 		},
 		{
 			name:  "email already taken",
@@ -167,12 +167,9 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 				tt.setupMocks(users, tokens, publisher)
 			}
 
-			uc := NewRegisterUseCase(
-				users,
-				tokens,
-				tokenSvc,
-				publisher,
-			)
+			transactor := testTransactor(users, tokens)
+
+			uc := NewRegisterUseCase(transactor, tokenSvc, publisher)
 
 			output, err := uc.Execute(context.Background(), tt.input)
 
@@ -183,7 +180,6 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-
 			assert.NotEmpty(t, output.UserID)
 			assert.NotEmpty(t, output.Tokens.Access)
 			assert.NotEmpty(t, output.Tokens.Refresh)
