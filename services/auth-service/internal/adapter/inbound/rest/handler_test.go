@@ -39,8 +39,7 @@ func TestExtractToken(t *testing.T) {
 			if tt.header != "" {
 				req.Header.Set("Authorization", tt.header)
 			}
-			got := extractToken(req)
-			require.Equal(t, tt.want, got)
+			require.Equal(t, tt.want, extractToken(req))
 		})
 	}
 }
@@ -59,10 +58,7 @@ func TestValidate(t *testing.T) {
 			url:           "/validate",
 			authorization: "Bearer valid123",
 			setupMock: func(svc *MockTokenService) {
-				svc.EXPECT().
-					Authenticate(auth.Token("valid123")).
-					Return(auth.Identity{UserID: "test-user"}, nil).
-					Once()
+				svc.EXPECT().Authenticate(auth.Token("valid123")).Return(auth.Identity{UserID: "test-user"}, nil).Once()
 			},
 			wantStatus: http.StatusOK,
 			wantUserID: "test-user",
@@ -71,10 +67,7 @@ func TestValidate(t *testing.T) {
 			name: "success with query parameter",
 			url:  "/validate?token=valid123",
 			setupMock: func(svc *MockTokenService) {
-				svc.EXPECT().
-					Authenticate(auth.Token("valid123")).
-					Return(auth.Identity{UserID: "test-user"}, nil).
-					Once()
+				svc.EXPECT().Authenticate(auth.Token("valid123")).Return(auth.Identity{UserID: "test-user"}, nil).Once()
 			},
 			wantStatus: http.StatusOK,
 			wantUserID: "test-user",
@@ -89,10 +82,7 @@ func TestValidate(t *testing.T) {
 			url:           "/validate",
 			authorization: "Bearer invalid123",
 			setupMock: func(svc *MockTokenService) {
-				svc.EXPECT().
-					Authenticate(auth.Token("invalid123")).
-					Return(auth.Identity{}, auth.ErrTokenInvalid).
-					Once()
+				svc.EXPECT().Authenticate(auth.Token("invalid123")).Return(auth.Identity{}, auth.ErrTokenInvalid).Once()
 			},
 			wantStatus: http.StatusUnauthorized,
 		},
@@ -101,24 +91,17 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
-
 			if tt.authorization != "" {
-				req.Header.Set(
-					"Authorization",
-					tt.authorization,
-				)
+				req.Header.Set("Authorization", tt.authorization)
 			}
 
 			svc := NewMockTokenService(t)
-
 			if tt.setupMock != nil {
 				tt.setupMock(svc)
 			}
 
-			handler := NewHandler(nil, nil, nil, svc)
 			recorder := httptest.NewRecorder()
-
-			handler.Validate(recorder, req)
+			NewHandler(nil, nil, nil, svc).Validate(recorder, req)
 
 			resp := recorder.Result()
 			defer resp.Body.Close()
@@ -130,9 +113,8 @@ func TestValidate(t *testing.T) {
 }
 
 func TestHandler_Register(t *testing.T) {
-	expiresAt := time.Date(
-		2026, 1, 1, 12, 0, 0, 0, time.UTC,
-	)
+	expiresAt := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	credentials := `{"email":"test@example.com","password":"password"}`
 
 	tests := []struct {
 		name       string
@@ -143,38 +125,19 @@ func TestHandler_Register(t *testing.T) {
 	}{
 		{
 			name: "success",
-			body: `{
-                "email": "test@example.com",
-                "password": "password"
-            }`,
+			body: credentials,
 			setupMock: func(s *MockRegisterService) {
-				s.EXPECT().
-					Execute(
-						mock.Anything,
-						usecase.RegisterInput{
-							Email:    "test@example.com",
-							Password: "password",
-						},
-					).
-					Return(
-						usecase.RegisterOutput{
-							UserID: "uuid1234",
-							Tokens: auth.TokenPair{
-								Access:    "access123",
-								Refresh:   "refresh123",
-								ExpiresAt: expiresAt,
-							},
-						},
-						nil,
-					).
-					Once()
+				s.EXPECT().Execute(mock.Anything, usecase.RegisterInput{
+					Email: "test@example.com", Password: "password",
+				}).Return(usecase.RegisterOutput{
+					UserID: "uuid1234",
+					Tokens: auth.TokenPair{
+						Access: "access123", Refresh: "refresh123", ExpiresAt: expiresAt,
+					},
+				}, nil).Once()
 			},
 			wantStatus: http.StatusCreated,
-			wantBody: `{
-                "access_token": "access123",
-                "refresh_token": "refresh123",
-                "expires_at": "2026-01-01T12:00:00Z"
-            }`,
+			wantBody:   `{"access_token":"access123","refresh_token":"refresh123","expires_at":"2026-01-01T12:00:00Z"}`,
 		},
 		{
 			name:       "invalid JSON",
@@ -183,47 +146,21 @@ func TestHandler_Register(t *testing.T) {
 		},
 		{
 			name: "email already taken",
-			body: `{
-                "email": "test@example.com",
-                "password": "password"
-            }`,
+			body: credentials,
 			setupMock: func(s *MockRegisterService) {
-				s.EXPECT().
-					Execute(
-						mock.Anything,
-						usecase.RegisterInput{
-							Email:    "test@example.com",
-							Password: "password",
-						},
-					).
-					Return(
-						usecase.RegisterOutput{},
-						auth.ErrEmailTaken,
-					).
-					Once()
+				s.EXPECT().Execute(mock.Anything, usecase.RegisterInput{
+					Email: "test@example.com", Password: "password",
+				}).Return(usecase.RegisterOutput{}, auth.ErrEmailTaken).Once()
 			},
 			wantStatus: http.StatusConflict,
 		},
 		{
 			name: "password too short",
-			body: `{
-                "email": "test@example.com",
-                "password": "123"
-            }`,
+			body: `{"email":"test@example.com","password":"123"}`,
 			setupMock: func(s *MockRegisterService) {
-				s.EXPECT().
-					Execute(
-						mock.Anything,
-						usecase.RegisterInput{
-							Email:    "test@example.com",
-							Password: "123",
-						},
-					).
-					Return(
-						usecase.RegisterOutput{},
-						auth.ErrPasswordTooShort,
-					).
-					Once()
+				s.EXPECT().Execute(mock.Anything, usecase.RegisterInput{
+					Email: "test@example.com", Password: "123",
+				}).Return(usecase.RegisterOutput{}, auth.ErrPasswordTooShort).Once()
 			},
 			wantStatus: http.StatusBadRequest,
 		},
@@ -239,24 +176,11 @@ func TestHandler_Register(t *testing.T) {
 		},
 		{
 			name: "internal server error",
-			body: `{
-                "email": "test@example.com",
-                "password": "password"
-            }`,
+			body: credentials,
 			setupMock: func(s *MockRegisterService) {
-				s.EXPECT().
-					Execute(
-						mock.Anything,
-						usecase.RegisterInput{
-							Email:    "test@example.com",
-							Password: "password",
-						},
-					).
-					Return(
-						usecase.RegisterOutput{},
-						errors.New("database unavailable"),
-					).
-					Once()
+				s.EXPECT().Execute(mock.Anything, usecase.RegisterInput{
+					Email: "test@example.com", Password: "password",
+				}).Return(usecase.RegisterOutput{}, errors.New("database unavailable")).Once()
 			},
 			wantStatus: http.StatusInternalServerError,
 		},
@@ -264,47 +188,25 @@ func TestHandler_Register(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(
-				http.MethodPost,
-				"/register",
-				strings.NewReader(tt.body),
-			)
-			req.Header.Set(
-				"Content-Type",
-				"application/json",
-			)
+			req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
 
 			svc := NewMockRegisterService(t)
-
 			if tt.setupMock != nil {
 				tt.setupMock(svc)
 			}
 
-			handler := NewHandler(svc, nil, nil, nil)
 			recorder := httptest.NewRecorder()
-
-			handler.Register(recorder, req)
+			NewHandler(svc, nil, nil, nil).Register(recorder, req)
 
 			resp := recorder.Result()
 			defer resp.Body.Close()
 
-			require.Equal(
-				t,
-				tt.wantStatus,
-				resp.StatusCode,
-				"unexpected HTTP status",
-			)
-
+			require.Equal(t, tt.wantStatus, resp.StatusCode, "unexpected HTTP status")
 			if tt.wantBody != "" {
 				body, err := io.ReadAll(resp.Body)
 				require.NoError(t, err)
-
-				require.JSONEq(
-					t,
-					tt.wantBody,
-					string(body),
-					"unexpected response body",
-				)
+				require.JSONEq(t, tt.wantBody, string(body), "unexpected response body")
 			}
 		})
 	}
@@ -313,6 +215,7 @@ func TestHandler_Register(t *testing.T) {
 func TestHandler_Login(t *testing.T) {
 	expiresAt := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	credentials := `{"email":"test@example.com","password":"password"}`
+
 	tests := []struct {
 		name       string
 		body       string
@@ -338,7 +241,8 @@ func TestHandler_Login(t *testing.T) {
 		},
 		{name: "invalid JSON", body: `{"email":`, wantStatus: http.StatusBadRequest},
 		{
-			name: "user not found", body: credentials,
+			name: "user not found",
+			body: credentials,
 			setupMock: func(s *MockLoginService) {
 				s.EXPECT().Execute(mock.Anything, usecase.LoginInput{
 					Email: "test@example.com", Password: "password",
@@ -347,7 +251,8 @@ func TestHandler_Login(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "invalid password", body: credentials,
+			name: "invalid password",
+			body: credentials,
 			setupMock: func(s *MockLoginService) {
 				s.EXPECT().Execute(mock.Anything, usecase.LoginInput{
 					Email: "test@example.com", Password: "password",
@@ -356,7 +261,8 @@ func TestHandler_Login(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "internal server error", body: credentials,
+			name: "internal server error",
+			body: credentials,
 			setupMock: func(s *MockLoginService) {
 				s.EXPECT().Execute(mock.Anything, usecase.LoginInput{
 					Email: "test@example.com", Password: "password",
@@ -370,14 +276,18 @@ func TestHandler_Login(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
+
 			svc := NewMockLoginService(t)
 			if tt.setupMock != nil {
 				tt.setupMock(svc)
 			}
+
 			recorder := httptest.NewRecorder()
 			NewHandler(nil, svc, nil, nil).Login(recorder, req)
+
 			resp := recorder.Result()
 			defer resp.Body.Close()
+
 			require.Equal(t, tt.wantStatus, resp.StatusCode)
 			if tt.wantBody != "" {
 				body, err := io.ReadAll(resp.Body)
@@ -391,6 +301,7 @@ func TestHandler_Login(t *testing.T) {
 func TestHandler_Refresh(t *testing.T) {
 	expiresAt := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	validBody := `{"refresh_token":"refresh123"}`
+
 	tests := []struct {
 		name       string
 		body       string
@@ -399,7 +310,8 @@ func TestHandler_Refresh(t *testing.T) {
 		wantBody   string
 	}{
 		{
-			name: "success", body: validBody,
+			name: "success",
+			body: validBody,
 			setupMock: func(s *MockRefreshService) {
 				s.EXPECT().Execute(mock.Anything, auth.RefreshToken("refresh123")).Return(auth.TokenPair{
 					Access: "new-access", Refresh: "new-refresh", ExpiresAt: expiresAt,
@@ -410,21 +322,24 @@ func TestHandler_Refresh(t *testing.T) {
 		},
 		{name: "invalid JSON", body: `{"refresh_token":`, wantStatus: http.StatusBadRequest},
 		{
-			name: "invalid refresh token", body: validBody,
+			name: "invalid refresh token",
+			body: validBody,
 			setupMock: func(s *MockRefreshService) {
 				s.EXPECT().Execute(mock.Anything, auth.RefreshToken("refresh123")).Return(auth.TokenPair{}, auth.ErrRefreshInvalid).Once()
 			},
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "expired refresh token", body: validBody,
+			name: "expired refresh token",
+			body: validBody,
 			setupMock: func(s *MockRefreshService) {
 				s.EXPECT().Execute(mock.Anything, auth.RefreshToken("refresh123")).Return(auth.TokenPair{}, auth.ErrRefreshExpired).Once()
 			},
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "internal server error", body: validBody,
+			name: "internal server error",
+			body: validBody,
 			setupMock: func(s *MockRefreshService) {
 				s.EXPECT().Execute(mock.Anything, auth.RefreshToken("refresh123")).Return(auth.TokenPair{}, errors.New("database unavailable")).Once()
 			},
@@ -436,14 +351,18 @@ func TestHandler_Refresh(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/refresh", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
+
 			svc := NewMockRefreshService(t)
 			if tt.setupMock != nil {
 				tt.setupMock(svc)
 			}
+
 			recorder := httptest.NewRecorder()
 			NewHandler(nil, nil, svc, nil).Refresh(recorder, req)
+
 			resp := recorder.Result()
 			defer resp.Body.Close()
+
 			require.Equal(t, tt.wantStatus, resp.StatusCode)
 			if tt.wantBody != "" {
 				body, err := io.ReadAll(resp.Body)
@@ -492,20 +411,25 @@ func TestHandler_JWKS(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := NewMockTokenService(t)
 			tt.setupMock(svc)
+
 			req := httptest.NewRequest(http.MethodGet, "/.well-known/jwks.pem", nil)
 			recorder := httptest.NewRecorder()
 			NewHandler(nil, nil, nil, svc).JWKS(recorder, req)
+
 			resp := recorder.Result()
 			defer resp.Body.Close()
+
 			require.Equal(t, tt.wantStatus, resp.StatusCode)
 			if tt.wantKey != nil {
 				require.Equal(t, "application/x-pem-file", resp.Header.Get("Content-Type"))
 				body, err := io.ReadAll(resp.Body)
 				require.NoError(t, err)
+
 				block, rest := pem.Decode(body)
 				require.NotNil(t, block)
 				require.Empty(t, rest)
 				require.Equal(t, "PUBLIC KEY", block.Type)
+
 				parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
 				require.NoError(t, err)
 				require.Equal(t, tt.wantKey, parsed)
