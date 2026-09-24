@@ -51,9 +51,11 @@ func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App,
 
 	publisher := kafkaoutbound.NewEventPublisher(cfg.Kafka.Brokers, cfg.Kafka.Topic)
 
-	registerUC := usecase.NewRegisterUseCase(userRepo, tokenRepo, tokenSvc, publisher)
+	transactor := postgres.NewTransactor(pool)
+
+	registerUC := usecase.NewRegisterUseCase(transactor, tokenSvc, publisher)
 	loginUC := usecase.NewLoginUseCase(userRepo, tokenRepo, tokenSvc)
-	refreshUC := usecase.NewRefreshUseCase(userRepo, tokenRepo, tokenSvc)
+	refreshUC := usecase.NewRefreshUseCase(userRepo, tokenRepo, transactor, tokenSvc)
 
 	server := rest.NewServer(cfg.Server.Port, registerUC, loginUC, refreshUC, tokenSvc, baseLogger)
 

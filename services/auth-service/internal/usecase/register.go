@@ -3,31 +3,32 @@ package usecase
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
+	"github.com/handziurdmytro/messenger/pkg/errkit"
 	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
+type TokenIssuer interface {
+	Issue(auth.User) (auth.TokenPair, auth.RefreshEntry, error)
+}
+
 type RegisterUseCase struct {
-	users     outbound.UserRepository
-	tokens    outbound.TokenRepository
-	tokenSvc  *auth.TokenService
-	publisher outbound.EventPublisher
+	transactor outbound.Transactor
+	tokenSvc   TokenIssuer
+	publisher  outbound.EventPublisher
 }
 
 func NewRegisterUseCase(
-	users outbound.UserRepository,
-	tokens outbound.TokenRepository,
-	tokenSvc *auth.TokenService,
+	transactor outbound.Transactor,
+	tokenSvc TokenIssuer,
 	publisher outbound.EventPublisher,
 ) *RegisterUseCase {
 	return &RegisterUseCase{
-		users:     users,
-		tokens:    tokens,
-		tokenSvc:  tokenSvc,
-		publisher: publisher,
+		transactor: transactor,
+		tokenSvc:   tokenSvc,
+		publisher:  publisher,
 	}
 }
 
@@ -44,23 +45,27 @@ type RegisterOutput struct {
 func (uc *RegisterUseCase) Execute(ctx context.Context, input RegisterInput) (RegisterOutput, error) {
 	user, err := auth.NewUser(input.Email, input.Password)
 	if err != nil {
-		return RegisterOutput{}, fmt.Errorf("create user: %w", err)
-	}
-
-	if err := uc.users.Save(ctx, user); err != nil {
-		if errors.Is(err, auth.ErrEmailTaken) {
-			return RegisterOutput{}, auth.ErrEmailTaken
-		}
-		return RegisterOutput{}, fmt.Errorf("%w: save user: %v", ErrInternal, err)
+		return RegisterOutput{}, errkit.Wrap(ErrInternal, "create user", err)
 	}
 
 	pair, refresh, err := uc.tokenSvc.Issue(user)
 	if err != nil {
-		return RegisterOutput{}, fmt.Errorf("%w: issue tokens: %v", ErrInternal, err)
+		return RegisterOutput{}, errkit.Wrap(ErrInternal, "issue tokens", err)
 	}
 
-	if err := uc.tokens.SaveRefresh(ctx, refresh); err != nil {
-		return RegisterOutput{}, fmt.Errorf("%w: save refresh: %v", ErrInternal, err)
+	err = uc.transactor.WithinTransaction(ctx, func(repos outbound.Repositories) error {
+		if err := repos.Users.Save(ctx, user); err != nil {
+			return err
+		}
+
+		return repos.Tokens.SaveRefresh(ctx, refresh)
+	})
+	if err != nil {
+		if errors.Is(err, auth.ErrEmailTaken) {
+			return RegisterOutput{}, auth.ErrEmailTaken
+		}
+
+		return RegisterOutput{}, errkit.Wrap(ErrInternal, "persist registration", err)
 	}
 
 	if err := uc.publisher.PublishUserCreated(ctx, user); err != nil {

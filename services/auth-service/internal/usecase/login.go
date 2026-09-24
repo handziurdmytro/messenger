@@ -2,22 +2,23 @@ package usecase
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
+	"github.com/handziurdmytro/messenger/pkg/errkit"
 )
 
 type LoginUseCase struct {
 	users    outbound.UserRepository
 	tokens   outbound.TokenRepository
-	tokenSvc *auth.TokenService
+	tokenSvc TokenIssuer
 }
 
 func NewLoginUseCase(
 	users outbound.UserRepository,
 	tokens outbound.TokenRepository,
-	tokenSvc *auth.TokenService,
+	tokenSvc TokenIssuer,
 ) *LoginUseCase {
 	return &LoginUseCase{
 		users:    users,
@@ -39,7 +40,11 @@ type LoginOutput struct {
 func (uc *LoginUseCase) Execute(ctx context.Context, input LoginInput) (LoginOutput, error) {
 	user, err := uc.users.FindByEmail(ctx, input.Email)
 	if err != nil {
-		return LoginOutput{}, auth.ErrUserNotFound
+		if errors.Is(err, auth.ErrUserNotFound) {
+			return LoginOutput{}, auth.ErrUserNotFound
+		}
+
+		return LoginOutput{}, errkit.Wrap(ErrInternal, "find user", err)
 	}
 
 	if err := auth.CheckPassword(input.Password, user.PasswordHash); err != nil {
@@ -48,11 +53,11 @@ func (uc *LoginUseCase) Execute(ctx context.Context, input LoginInput) (LoginOut
 
 	pair, refresh, err := uc.tokenSvc.Issue(user)
 	if err != nil {
-		return LoginOutput{}, fmt.Errorf("%w: issue tokens: %v", ErrInternal, err)
+		return LoginOutput{}, errkit.Wrap(ErrInternal, "issue tokens", err)
 	}
 
 	if err := uc.tokens.SaveRefresh(ctx, refresh); err != nil {
-		return LoginOutput{}, fmt.Errorf("%w: save refresh: %v", ErrInternal, err)
+		return LoginOutput{}, errkit.Wrap(ErrInternal, "save refresh", err)
 	}
 
 	return LoginOutput{
