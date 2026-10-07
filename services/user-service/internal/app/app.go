@@ -47,6 +47,8 @@ func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App,
 		usecase.NewGetProfileUseCase(userRepo),
 		usecase.NewUpdateProfileUseCase(userRepo),
 		usecase.NewSearchUsersUseCase(userRepo),
+		usecase.NewAddContactUseCase(userRepo),
+		usecase.NewGetContactsUseCase(userRepo),
 		baseLogger,
 	)
 

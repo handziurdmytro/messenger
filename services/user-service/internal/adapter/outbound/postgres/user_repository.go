@@ -135,3 +135,35 @@ func (r *UserRepository) scanUsers(rows pgx.Rows) ([]user.User, error) {
 	}
 	return users, rows.Err()
 }
+
+func (r *UserRepository) AddContact(ctx context.Context, userID, contactID user.ID) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO contacts (user_id, contact_id, created_at)
+		VALUES ($1, $2, $3), ($2, $1, $3)
+		ON CONFLICT (user_id, contact_id) DO NOTHING`,
+		string(userID),
+		string(contactID),
+		time.Now().UTC(),
+	)
+	if err != nil {
+		return fmt.Errorf("add contact: %w", err)
+	}
+	return nil
+}
+
+func (r *UserRepository) GetContacts(ctx context.Context, userID user.ID) ([]user.User, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT u.id, u.email, u.display_name, u.avatar_url, u.created_at, u.updated_at
+		FROM users u
+		INNER JOIN contacts c ON u.id = c.contact_id
+		WHERE c.user_id = $1
+		ORDER BY u.display_name ASC`,
+		string(userID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get contacts: %w", err)
+	}
+	defer rows.Close()
+
+	return r.scanUsers(rows)
+}

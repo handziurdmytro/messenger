@@ -14,17 +14,23 @@ type Handler struct {
 	getProfile    *usecase.GetProfileUseCase
 	updateProfile *usecase.UpdateProfileUseCase
 	searchUsers   *usecase.SearchUsersUseCase
+	addContact    *usecase.AddContactUseCase
+	getContacts   *usecase.GetContactsUseCase
 }
 
 func NewHandler(
 	getProfile *usecase.GetProfileUseCase,
 	updateProfile *usecase.UpdateProfileUseCase,
 	searchUsers *usecase.SearchUsersUseCase,
+	addContact *usecase.AddContactUseCase,
+	getContacts *usecase.GetContactsUseCase,
 ) *Handler {
 	return &Handler{
 		getProfile:    getProfile,
 		updateProfile: updateProfile,
 		searchUsers:   searchUsers,
+		addContact:    addContact,
+		getContacts:   getContacts,
 	}
 }
 
@@ -129,6 +135,81 @@ func (h *Handler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]userResponse, len(users))
 	for i, u := range users {
+		resp[i] = toResponse(u)
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+type addContactRequest struct {
+	ContactID string `json:"contact_id"`
+}
+
+func (h *Handler) AddContact(w http.ResponseWriter, r *http.Request) {
+	log := logger.WithComponent(logger.FromContext(r.Context()), "user-rest")
+
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		log.Warn("add_contact: missing user id")
+		writeError(w, http.StatusUnauthorized, "missing user id")
+		return
+	}
+
+	var req addContactRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Warn("add_contact: invalid request body", logger.KeyUserID, userID, logger.KeyError, err)
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.ContactID == "" {
+		log.Warn("add_contact: missing contact_id", logger.KeyUserID, userID)
+		writeError(w, http.StatusBadRequest, "contact_id is required")
+		return
+	}
+
+	err := h.addContact.Execute(r.Context(), user.ID(userID), user.ID(req.ContactID))
+	if err != nil {
+		switch {
+		case errors.Is(err, usecase.ErrCannotAddSelf):
+			log.Info("add_contact: tried to add self", logger.KeyUserID, userID)
+			writeError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, user.ErrUserNotFound):
+			log.Info("add_contact: contact not found", logger.KeyUserID, userID, "contact_id", req.ContactID)
+			writeError(w, http.StatusNotFound, "contact user not found")
+		default:
+			log.Error("add_contact: failed", logger.KeyUserID, userID, logger.KeyError, err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+		}
+		return
+	}
+
+	log.Info("add_contact: succeeded", logger.KeyUserID, userID, "contact_id", req.ContactID)
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "success"})
+}
+
+func (h *Handler) GetContacts(w http.ResponseWriter, r *http.Request) {
+	log := logger.WithComponent(logger.FromContext(r.Context()), "user-rest")
+
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		log.Warn("get_contacts: missing user id")
+		writeError(w, http.StatusUnauthorized, "missing user id")
+		return
+	}
+
+	contacts, err := h.getContacts.Execute(r.Context(), user.ID(userID))
+	if err != nil {
+		log.Error("get_contacts: failed", logger.KeyUserID, userID, logger.KeyError, err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	log.Info("get_contacts: succeeded", logger.KeyUserID, userID, "count", len(contacts))
+
+	resp := make([]userResponse, len(contacts))
+	for i, u := range contacts {
 		resp[i] = toResponse(u)
 	}
 

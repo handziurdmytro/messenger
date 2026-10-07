@@ -17,8 +17,16 @@ const createSchema = `
         updated_at   TIMESTAMPTZ NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS contacts (
+        user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        contact_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL,
+        PRIMARY KEY (user_id, contact_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_users_display_name ON users USING gin(display_name gin_trgm_ops);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_contacts_user_id ON contacts(user_id);
 `
 
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
