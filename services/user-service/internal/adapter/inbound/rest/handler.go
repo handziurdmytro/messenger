@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/handziurdmytro/messenger/pkg/logger"
+	"github.com/handziurdmytro/messenger/user-service/internal/domain/contact"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 	"github.com/handziurdmytro/messenger/user-service/internal/usecase"
 )
@@ -43,10 +44,10 @@ type userResponse struct {
 
 func toResponse(u user.User) userResponse {
 	return userResponse{
-		ID:          string(u.ID),
-		Email:       u.Email,
-		DisplayName: u.DisplayName,
-		AvatarURL:   u.AvatarURL,
+		ID:          u.ID().String(),
+		Email:       u.Email().String(),
+		DisplayName: u.DisplayName(),
+		AvatarURL:   u.AvatarURL(),
 	}
 }
 
@@ -62,7 +63,7 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	u, err := h.getProfile.Execute(r.Context(), user.ID(userID))
 	if err != nil {
-		if errors.Is(err, user.ErrUserNotFound) {
+		if errors.Is(err, user.ErrNotFound) {
 			log.Info("get_profile: not found", logger.KeyUserID, userID)
 			writeError(w, http.StatusNotFound, "user not found")
 			return
@@ -96,13 +97,13 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.updateProfile.Execute(r.Context(), user.ID(userID), user.UpdateInput{
+	u, err := h.updateProfile.Execute(r.Context(), user.ID(userID), usecase.UpdateProfileInput{
 		DisplayName: req.DisplayName,
 		AvatarURL:   req.AvatarURL,
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, user.ErrUserNotFound):
+		case errors.Is(err, user.ErrNotFound):
 			log.Info("update_profile: not found", logger.KeyUserID, userID)
 			writeError(w, http.StatusNotFound, "user not found")
 		case errors.Is(err, user.ErrDisplayNameEmpty):
@@ -171,10 +172,12 @@ func (h *Handler) AddContact(w http.ResponseWriter, r *http.Request) {
 	err := h.addContact.Execute(r.Context(), user.ID(userID), user.ID(req.ContactID))
 	if err != nil {
 		switch {
-		case errors.Is(err, usecase.ErrCannotAddSelf):
+		case errors.Is(err, contact.ErrCannotAddSelf):
 			log.Info("add_contact: tried to add self", logger.KeyUserID, userID)
 			writeError(w, http.StatusBadRequest, err.Error())
-		case errors.Is(err, user.ErrUserNotFound):
+		case errors.Is(err, contact.ErrAlreadyExists):
+			writeError(w, http.StatusConflict, err.Error())
+		case errors.Is(err, user.ErrNotFound):
 			log.Info("add_contact: contact not found", logger.KeyUserID, userID, "contact_id", req.ContactID)
 			writeError(w, http.StatusNotFound, "contact user not found")
 		default:

@@ -9,15 +9,15 @@ import (
 )
 
 type GetContactsUseCase struct {
-	users outbound.UserRepository
+	contacts outbound.ContactRepository
 }
 
-func NewGetContactsUseCase(users outbound.UserRepository) *GetContactsUseCase {
-	return &GetContactsUseCase{users: users}
+func NewGetContactsUseCase(contacts outbound.ContactRepository) *GetContactsUseCase {
+	return &GetContactsUseCase{contacts: contacts}
 }
 
 func (uc *GetContactsUseCase) Execute(ctx context.Context, userID user.ID) ([]user.User, error) {
-	contacts, err := uc.users.GetContacts(ctx, userID)
+	contacts, err := uc.contacts.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get contacts: %w", err)
 	}

@@ -78,7 +78,10 @@ func (c *UserCreatedConsumer) handle(ctx context.Context, msg kafka.Message) err
 		return fmt.Errorf("parse created_at: %w", err)
 	}
 
-	u := user.NewFromEvent(event.UserID, event.Email, createdAt)
+	u, err := user.New(user.ID(event.UserID), event.Email, createdAt)
+	if err != nil {
+		return fmt.Errorf("create user from event: %w", err)
+	}
 	return c.users.Save(ctx, u)
 }
 
