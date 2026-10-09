@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/handziurdmytro/messenger/pkg/logger"
-	"github.com/handziurdmytro/messenger/user-service/internal/usecase"
 )
 
 type Server struct {
@@ -17,11 +16,11 @@ type Server struct {
 
 func NewServer(
 	port string,
-	getProfile *usecase.GetProfileUseCase,
-	updateProfile *usecase.UpdateProfileUseCase,
-	searchUsers *usecase.SearchUsersUseCase,
-	addContact *usecase.AddContactUseCase,
-	getContacts *usecase.GetContactsUseCase,
+	getProfile GetProfileUseCase,
+	updateProfile UpdateProfileUseCase,
+	searchUsers SearchUsersUseCase,
+	addContact AddContactUseCase,
+	getContacts GetContactsUseCase,
 	baseLogger *slog.Logger,
 ) *Server {
 	h := NewHandler(getProfile, updateProfile, searchUsers, addContact, getContacts)
