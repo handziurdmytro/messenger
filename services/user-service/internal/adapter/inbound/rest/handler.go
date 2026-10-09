@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,20 +12,40 @@ import (
 	"github.com/handziurdmytro/messenger/user-service/internal/usecase"
 )
 
+type GetProfileUseCase interface {
+	Execute(ctx context.Context, id user.ID) (user.User, error)
+}
+
+type UpdateProfileUseCase interface {
+	Execute(ctx context.Context, id user.ID, input usecase.UpdateProfileInput) (user.User, error)
+}
+
+type SearchUsersUseCase interface {
+	Execute(ctx context.Context, query string, limit int) ([]user.User, error)
+}
+
+type AddContactUseCase interface {
+	Execute(ctx context.Context, userID, contactID user.ID) error
+}
+
+type GetContactsUseCase interface {
+	Execute(ctx context.Context, userID user.ID) ([]user.User, error)
+}
+
 type Handler struct {
-	getProfile    *usecase.GetProfileUseCase
-	updateProfile *usecase.UpdateProfileUseCase
-	searchUsers   *usecase.SearchUsersUseCase
-	addContact    *usecase.AddContactUseCase
-	getContacts   *usecase.GetContactsUseCase
+	getProfile    GetProfileUseCase
+	updateProfile UpdateProfileUseCase
+	searchUsers   SearchUsersUseCase
+	addContact    AddContactUseCase
+	getContacts   GetContactsUseCase
 }
 
 func NewHandler(
-	getProfile *usecase.GetProfileUseCase,
-	updateProfile *usecase.UpdateProfileUseCase,
-	searchUsers *usecase.SearchUsersUseCase,
-	addContact *usecase.AddContactUseCase,
-	getContacts *usecase.GetContactsUseCase,
+	getProfile GetProfileUseCase,
+	updateProfile UpdateProfileUseCase,
+	searchUsers SearchUsersUseCase,
+	addContact AddContactUseCase,
+	getContacts GetContactsUseCase,
 ) *Handler {
 	return &Handler{
 		getProfile:    getProfile,
