@@ -10,12 +10,18 @@ import (
 	"time"
 )
 
-const createUser = `-- name: CreateUser :exec
+const createUser = `-- name: CreateUser :execrows
 INSERT INTO users (id, email, display_name, avatar_url, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5,
+VALUES ($1,
+        $2,
+        $3,
+        $4,
+        $5,
         $6)
-ON CONFLICT (id)
-    DO NOTHING
+ON CONFLICT (id) DO UPDATE
+    SET id = EXCLUDED.id
+WHERE users.email = EXCLUDED.email
+  AND users.created_at = EXCLUDED.created_at
 `
 
 type CreateUserParams struct {
@@ -27,8 +33,8 @@ type CreateUserParams struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
-	_, err := q.db.Exec(ctx, createUser,
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, createUser,
 		arg.ID,
 		arg.Email,
 		arg.DisplayName,
@@ -36,7 +42,10 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getUserByID = `-- name: GetUserByID :one

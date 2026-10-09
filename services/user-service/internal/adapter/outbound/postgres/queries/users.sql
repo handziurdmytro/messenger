@@ -1,9 +1,15 @@
--- name: CreateUser :exec
+-- name: CreateUser :execrows
 INSERT INTO users (id, email, display_name, avatar_url, created_at, updated_at)
-VALUES (sqlc.arg(id), sqlc.arg(email), sqlc.arg(display_name), sqlc.arg(avatar_url), sqlc.arg(created_at),
+VALUES (sqlc.arg(id),
+        sqlc.arg(email),
+        sqlc.arg(display_name),
+        sqlc.arg(avatar_url),
+        sqlc.arg(created_at),
         sqlc.arg(updated_at))
-ON CONFLICT (id)
-    DO NOTHING;
+ON CONFLICT (id) DO UPDATE
+    SET id = EXCLUDED.id
+WHERE users.email = EXCLUDED.email
+  AND users.created_at = EXCLUDED.created_at;
 
 -- name: GetUserByID :one
 SELECT id,

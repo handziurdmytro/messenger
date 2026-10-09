@@ -24,19 +24,26 @@ func NewUserRepository(q *db.Queries) *UserRepository {
 }
 
 func (r *UserRepository) Save(ctx context.Context, u user.User) error {
-	err := r.q.CreateUser(ctx, db.CreateUserParams{
-		ID: u.ID().String(), Email: u.Email().String(), DisplayName: u.DisplayName(),
-		AvatarUrl: u.AvatarURL(), CreatedAt: u.CreatedAt(), UpdatedAt: u.UpdatedAt(),
+	rowsAffected, err := r.q.CreateUser(ctx, db.CreateUserParams{
+		ID:          u.ID().String(),
+		Email:       u.Email().String(),
+		DisplayName: u.DisplayName(),
+		AvatarUrl:   u.AvatarURL(),
+		CreatedAt:   u.CreatedAt(),
+		UpdatedAt:   u.UpdatedAt(),
 	})
-	if err == nil {
-		return nil
+	if err != nil {
+		if pgkit.IsConstraint(err, pgkit.CodeUniqueViolation, usersEmailUniqueConstraint) {
+			return user.ErrEmailTaken
+		}
+		return errkit.Wrap(outbound.ErrPersistence, "save user", err)
 	}
 
-	if pgkit.IsConstraint(err, pgkit.CodeUniqueViolation, usersEmailUniqueConstraint) {
-		return user.ErrEmailTaken
+	if rowsAffected == 0 {
+		return user.ErrAlreadyExists
 	}
 
-	return errkit.Wrap(outbound.ErrPersistence, "save user", err)
+	return nil
 }
 
 func (r *UserRepository) FindByID(ctx context.Context, id user.ID) (user.User, error) {
