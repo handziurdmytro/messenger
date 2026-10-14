@@ -62,3 +62,28 @@ sql:
             go_type:
               import: "time"
               type: "Time"
+  - engine: "postgresql"
+    schema: "./services/chat-service/migrations"
+    queries: "./services/chat-service/internal/adapter/outbound/postgres/queries"
+
+    gen:
+      go:
+        package: "db"
+        out: "./services/chat-service/internal/adapter/outbound/postgres/sqlc"
+        sql_package: "pgx/v5"
+
+        emit_json_tags: true
+        emit_empty_slices: true
+        emit_interface: false
+        emit_exact_table_names: false
+
+        overrides:
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+
+          - column: "chats.created_at"
+            go_type:
+              import: "time"
+              type: "Time"
