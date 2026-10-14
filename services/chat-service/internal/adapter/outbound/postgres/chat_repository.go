@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/handziurdmytro/messenger/chat-service/internal/usecase"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	db "github.com/handziurdmytro/messenger/chat-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
-	"github.com/handziurdmytro/messenger/chat-service/internal/port/outbound"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
 	"github.com/handziurdmytro/messenger/pkg/pgkit"
 )
@@ -36,7 +36,7 @@ func NewChatRepository(pool *pgxpool.Pool) *ChatRepository {
 func (r *ChatRepository) Save(ctx context.Context, c chat.Chat) error {
 	id, err := uuid.Parse(string(c.ID()))
 	if err != nil {
-		return errkit.Wrap(outbound.ErrPersistence, "postgres: parse chat ID", err)
+		return errkit.Wrap(usecase.ErrPersistence, "postgres: parse chat ID", err)
 	}
 
 	if c.Type() != chat.TypePrivate {
@@ -81,9 +81,9 @@ func (r *ChatRepository) Save(ctx context.Context, c chat.Chat) error {
 	})
 	if err != nil {
 		if pgkit.IsConstraint(err, pgkit.CodeUniqueViolation, constraintPrivateKey) {
-			return errkit.Wrap(outbound.ErrChatAlreadyExists, "postgres: save chat", err)
+			return errkit.Wrap(usecase.ErrChatAlreadyExists, "postgres: save chat", err)
 		}
-		return errkit.Wrap(outbound.ErrPersistence, "postgres: save chat", err)
+		return errkit.Wrap(usecase.ErrPersistence, "postgres: save chat", err)
 	}
 
 	return nil
@@ -123,7 +123,7 @@ func (r *ChatRepository) FindPrivateByParticipants(ctx context.Context, u1, u2 c
 func (r *ChatRepository) restore(ctx context.Context, id uuid.UUID, chatType string, createdAt time.Time) (chat.Chat, error) {
 	userIDs, err := r.q.ListParticipantsByChatID(ctx, id)
 	if err != nil {
-		return chat.Chat{}, errkit.Wrap(outbound.ErrPersistence, "postgres: list participants", err)
+		return chat.Chat{}, errkit.Wrap(usecase.ErrPersistence, "postgres: list participants", err)
 	}
 
 	participants := make([]chat.UserID, 0, len(userIDs))
@@ -133,7 +133,7 @@ func (r *ChatRepository) restore(ctx context.Context, id uuid.UUID, chatType str
 
 	c, err := chat.Restore(chat.ID(id.String()), chat.Type(chatType), participants, createdAt)
 	if err != nil {
-		return chat.Chat{}, errkit.Wrap(outbound.ErrPersistence, "postgres: restore chat", err)
+		return chat.Chat{}, errkit.Wrap(usecase.ErrPersistence, "postgres: restore chat", err)
 	}
 
 	return c, nil
@@ -141,7 +141,7 @@ func (r *ChatRepository) restore(ctx context.Context, id uuid.UUID, chatType str
 
 func findError(operation string, err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
-		return outbound.ErrChatNotFound
+		return usecase.ErrChatNotFound
 	}
-	return errkit.Wrap(outbound.ErrPersistence, operation, err)
+	return errkit.Wrap(usecase.ErrPersistence, operation, err)
 }
