@@ -7,175 +7,153 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/coder/websocket"
 
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
-	"github.com/handziurdmytro/messenger/chat-service/internal/port/outbound"
-	"github.com/handziurdmytro/messenger/pkg/logger"
+	"github.com/handziurdmytro/messenger/chat-service/internal/usecase"
+	"github.com/handziurdmytro/messenger/pkg/contracts/message"
 )
 
 const (
-	writeTimeout   = 10 * time.Second
-	pongWait       = 60 * time.Second
-	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 4096
+	maxMessageSize     = 64 << 10
+	sendMessageTimeout = 15 * time.Second
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin:     func(_ *http.Request) bool { return true },
-}
-
 type Handler struct {
-	hub       *chat.Hub
-	publisher outbound.MessagePublisher
+	registry    *Registry
+	sendMessage *usecase.SendMessageUseCase
+	logger      *slog.Logger
 }
 
-func NewHandler(hub *chat.Hub, publisher outbound.MessagePublisher) *Handler {
+func NewHandler(registry *Registry, sendMessage *usecase.SendMessageUseCase, logger *slog.Logger) *Handler {
 	return &Handler{
-		hub:       hub,
-		publisher: publisher,
-	}
-}
-
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log := logger.WithComponent(logger.FromContext(r.Context()), "ws")
-
-	userID := r.Header.Get("X-User-ID")
-	if userID == "" {
-		log.Warn("ws: missing user id")
-		http.Error(w, "missing user id", http.StatusUnauthorized)
-		return
-	}
-
-	roomID := chat.RoomID(r.URL.Query().Get("room_id"))
-	if roomID == "" {
-		log.Warn("ws: missing room_id", "user_id", userID)
-		http.Error(w, "missing room_id", http.StatusBadRequest)
-		return
-	}
-
-	connLog := log.With("user_id", userID, "room_id", string(roomID))
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		connLog.Error("ws: upgrade failed", logger.KeyError, err)
-		return
-	}
-
-	client, err := h.hub.Join(userID, roomID)
-	if err != nil {
-		conn.Close()
-		connLog.Warn("ws: join failed", logger.KeyError, err)
-		return
-	}
-
-	connLog.Info("ws: connected")
-
-	go h.writePump(conn, client, connLog)
-	go h.readPump(r.Context(), conn, client, connLog)
-}
-
-func (h *Handler) readPump(ctx context.Context, conn *websocket.Conn, client *chat.Client, log *slog.Logger) {
-	defer func() {
-		_ = h.hub.Leave(client)
-		conn.Close()
-		log.Info("ws: disconnected")
-	}()
-
-	conn.SetReadLimit(maxMessageSize)
-	conn.SetReadDeadline(time.Now().Add(pongWait))
-	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
-	})
-
-	for {
-		_, raw, err := conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err,
-				websocket.CloseGoingAway,
-				websocket.CloseAbnormalClosure,
-			) {
-				log.Error("ws: unexpected close", logger.KeyError, err)
-			}
-			return
-		}
-
-		msg, err := parseMessage(raw, client)
-		if err != nil {
-			log.Warn("ws: invalid message payload", logger.KeyError, err)
-			continue
-		}
-
-		if err := h.hub.Publish(msg); err != nil {
-			log.Warn("ws: publish to room failed", logger.KeyError, err)
-			continue
-		}
-
-		go func(m chat.Message) {
-			publishCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-
-			if err := h.publisher.Publish(publishCtx, m); err != nil {
-				log.Error("kafka: publish failed", logger.KeyError, err)
-				// TODO: dead letter queue or retry
-			}
-		}(msg)
-	}
-}
-
-func (h *Handler) writePump(conn *websocket.Conn, client *chat.Client, log *slog.Logger) {
-	ticker := time.NewTicker(pingPeriod)
-	defer func() {
-		ticker.Stop()
-		conn.Close()
-	}()
-
-	for {
-		select {
-		case msg, ok := <-client.Send():
-			conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			if !ok {
-				conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-
-			raw, err := json.Marshal(msg)
-			if err != nil {
-				log.Error("ws: marshal failed", logger.KeyError, err)
-				continue
-			}
-
-			if err := conn.WriteMessage(websocket.TextMessage, raw); err != nil {
-				return
-			}
-
-		case <-ticker.C:
-			conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				return
-			}
-		}
+		registry:    registry,
+		sendMessage: sendMessage,
+		logger:      logger,
 	}
 }
 
 type incomingMessage struct {
-	Body string `json:"body"`
-	Type string `json:"type"`
+	MessageID string          `json:"message_id"`
+	ChatID    string          `json:"chat_id"`
+	Type      message.Type    `json:"type"`
+	Payload   json.RawMessage `json:"payload"`
 }
 
-func parseMessage(raw []byte, client *chat.Client) (chat.Message, error) {
-	var incoming incomingMessage
-	if err := json.Unmarshal(raw, &incoming); err != nil {
-		return chat.Message{}, err
+type outgoingResponse struct {
+	Type      string `json:"type"`
+	MessageID string `json:"message_id,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	userID, err := chat.ParseUserID(r.Header.Get("X-User-ID"))
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
 	}
 
-	return chat.Message{
-		RoomID:   client.RoomID(),
-		FromUser: client.UserID(),
-		Type:     chat.MessageType(incoming.Type),
-		Body:     incoming.Body,
-	}, nil
+	conn, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		h.logger.Warn("websocket upgrade failed", "error", err)
+		return
+	}
+
+	conn.SetReadLimit(maxMessageSize)
+
+	client := newConnection(userID, conn)
+	if !h.registry.Add(client) {
+		client.Close()
+		return
+	}
+
+	ctx, cancel := context.WithCancel(r.Context())
+	writeDone := make(chan struct{})
+
+	go func() {
+		defer close(writeDone)
+		client.writeLoop(ctx)
+	}()
+
+	h.readLoop(ctx, client)
+
+	cancel()
+	h.registry.Remove(client)
+	<-writeDone
+}
+
+func (h *Handler) readLoop(ctx context.Context, client *Connection) {
+	for {
+		typ, data, err := client.conn.Read(ctx)
+		if err != nil {
+			return
+		}
+
+		if typ != websocket.MessageText {
+			h.respond(client, outgoingResponse{
+				Type:  "error",
+				Error: "expected text message",
+			})
+			continue
+		}
+
+		var incoming incomingMessage
+		if err := json.Unmarshal(data, &incoming); err != nil {
+			h.respond(client, outgoingResponse{
+				Type:  "error",
+				Error: "invalid message format",
+			})
+			continue
+		}
+
+		chatID, err := chat.ParseID(incoming.ChatID)
+		if err != nil {
+			h.respond(client, outgoingResponse{
+				Type:      "error",
+				MessageID: incoming.MessageID,
+				Error:     "invalid chat ID",
+			})
+			continue
+		}
+
+		sendCtx, cancel := context.WithTimeout(ctx, sendMessageTimeout)
+		id, err := h.sendMessage.Execute(sendCtx, usecase.SendMessageInput{
+			MessageID: incoming.MessageID,
+			ChatID:    chatID,
+			FromUser:  client.userID,
+			Type:      incoming.Type,
+			Payload:   incoming.Payload,
+		})
+		cancel()
+
+		if err != nil {
+			h.logger.Warn("send message failed",
+				"message_id", incoming.MessageID,
+				"error", err,
+			)
+			h.respond(client, outgoingResponse{
+				Type:      "error",
+				MessageID: incoming.MessageID,
+				Error:     "failed to send message",
+			})
+			continue
+		}
+
+		h.respond(client, outgoingResponse{
+			Type:      "message.accepted",
+			MessageID: id,
+		})
+	}
+}
+
+func (h *Handler) respond(client *Connection, response outgoingResponse) {
+	data, err := json.Marshal(response)
+	if err != nil {
+		h.logger.Error("marshal websocket response failed", "error", err)
+		return
+	}
+
+	if !client.trySend(data) {
+		client.Close()
+	}
 }
