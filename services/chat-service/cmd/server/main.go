@@ -24,24 +24,28 @@ func run() int {
 	defer stop()
 
 	_ = godotenv.Load()
+
 	cfg, err := config.Load()
 	if err != nil {
 		logger.New("chat-service", "INFO").Error("failed to load config", logger.KeyError, err)
 		return 1
 	}
-	log := logger.New("chat-service", cfg.LogLevel)
 
-	a, err := app.New(cfg, log)
+	log := logger.New("chat-service", cfg.Log.Level)
+
+	a, err := app.New(ctx, cfg, log)
 	if err != nil {
 		log.Error("failed to initialize app", logger.KeyError, err)
 		return 1
 	}
 
-	log.Info("starting server...")
+	log.Info("starting server")
+
 	if err := runner.Run(ctx, log, 10*time.Second, a); err != nil {
 		log.Error("server exited with error", logger.KeyError, err)
 		return 1
 	}
+
 	log.Info("server stopped")
 	return 0
 }
