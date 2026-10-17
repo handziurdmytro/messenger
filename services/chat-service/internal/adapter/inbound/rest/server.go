@@ -22,12 +22,30 @@ func NewServer(
 	getChat *usecase.GetChatUseCase,
 	wsHandler http.Handler,
 	baseLogger *slog.Logger,
+	listChats *usecase.ListChatsUseCase,
 ) *Server {
 	handler := NewHandler(createChat, getChat)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chats", handler.CreateChat)
 	mux.HandleFunc("GET /chats/{id}", handler.GetChat)
+	mux.HandleFunc("GET /chats", func(w http.ResponseWriter, r *http.Request) {
+		userID, err := authenticatedUser(r)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		chats, err := listChats.Execute(r.Context(), userID)
+		if err != nil {
+			handler.handleError(w, r, err)
+			return
+		}
+		result := make([]chatResponse, 0, len(chats))
+		for _, c := range chats {
+			result = append(result, toChatResponse(c))
+		}
+		writeJSON(w, http.StatusOK, result)
+	})
 
 	if wsHandler != nil {
 		mux.Handle("GET /ws", wsHandler)

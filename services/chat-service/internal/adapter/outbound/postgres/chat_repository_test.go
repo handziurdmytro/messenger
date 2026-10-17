@@ -30,6 +30,24 @@ func newTestPrivateChat(t *testing.T) chat.Chat {
 	return c
 }
 
+func TestChatRepository_ListByUser(t *testing.T) {
+	repo, _ := newTestChatRepository(t)
+	ctx := context.Background()
+	own := newTestPrivateChat(t)
+	other := newTestPrivateChat(t)
+	require.NoError(t, repo.Save(ctx, own))
+	require.NoError(t, repo.Save(ctx, other))
+	for _, participant := range own.Participants() {
+		chats, err := repo.ListByUser(ctx, participant)
+		require.NoError(t, err)
+		require.Len(t, chats, 1)
+		requireSameChat(t, own, chats[0])
+	}
+	chats, err := repo.ListByUser(ctx, chat.UserID(uuid.NewString()))
+	require.NoError(t, err)
+	require.Empty(t, chats)
+}
+
 func requireSameChat(t *testing.T, expected, actual chat.Chat) {
 	t.Helper()
 

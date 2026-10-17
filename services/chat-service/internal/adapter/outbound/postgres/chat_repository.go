@@ -145,3 +145,33 @@ func findError(operation string, err error) error {
 	}
 	return errkit.Wrap(usecase.ErrPersistence, operation, err)
 }
+
+func (r *ChatRepository) ListByUser(ctx context.Context, userID chat.UserID) ([]chat.Chat, error) {
+	rows, err := r.pool.Query(ctx, `SELECT c.id::text, c.type, c.created_at, array_agg(p.user_id::text ORDER BY p.user_id)
+ FROM chats c JOIN participants p ON p.chat_id = c.id
+ WHERE EXISTS (SELECT 1 FROM participants mine WHERE mine.chat_id = c.id AND mine.user_id = $1)
+ GROUP BY c.id ORDER BY c.created_at DESC, c.id DESC`, string(userID))
+	if err != nil {
+		return nil, findError("list chats", err)
+	}
+	defer rows.Close()
+	result := make([]chat.Chat, 0)
+	for rows.Next() {
+		var id, typ string
+		var created time.Time
+		var users []string
+		if err := rows.Scan(&id, &typ, &created, &users); err != nil {
+			return nil, err
+		}
+		participants := make([]chat.UserID, len(users))
+		for i, u := range users {
+			participants[i] = chat.UserID(u)
+		}
+		c, err := chat.Restore(chat.ID(id), chat.Type(typ), participants, created)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, c)
+	}
+	return result, rows.Err()
+}

@@ -90,6 +90,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		getChatUC,
 		wsHandler,
 		logger,
+		usecase.NewListChats(chatRepo),
 	)
 
 	messageConsumer := natsinbound.NewMessageConsumer(
