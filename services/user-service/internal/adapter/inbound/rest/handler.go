@@ -81,6 +81,9 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "missing user id")
 		return
 	}
+	if id := r.PathValue("id"); id != "" {
+		userID = id
+	}
 
 	u, err := h.getProfile.Execute(r.Context(), user.ID(userID))
 	if err != nil {
