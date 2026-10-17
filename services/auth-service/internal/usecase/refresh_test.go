@@ -158,7 +158,7 @@ func TestRefreshUseCase_Execute(t *testing.T) {
 
 			tt.setupMocks(users, tokens)
 
-			transactor := testTransactor(users, tokens)
+			transactor := testTransactor(users, tokens, nil)
 
 			uc := NewRefreshUseCase(users, tokens, transactor, tokenSvc)
 

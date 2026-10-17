@@ -39,6 +39,7 @@ func (f transactorFunc) WithinTransaction(
 func testTransactor(
 	users outbound.UserRepository,
 	tokens outbound.TokenRepository,
+	outbox outbound.OutboxRepository,
 ) outbound.Transactor {
 	return transactorFunc(func(
 		_ context.Context,
@@ -47,6 +48,7 @@ func testTransactor(
 		return fn(outbound.Repositories{
 			Users:  users,
 			Tokens: tokens,
+			Outbox: outbox,
 		})
 	})
 }

@@ -36,7 +36,7 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 		setupMocks func(
 			*MockUserRepository,
 			*MockTokenRepository,
-			*MockEventPublisher,
+			*MockOutboxRepository,
 		)
 		wantErr error
 	}{
@@ -54,7 +54,7 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 			setupMocks: func(
 				users *MockUserRepository,
 				_ *MockTokenRepository,
-				_ *MockEventPublisher,
+				_ *MockOutboxRepository,
 			) {
 				users.EXPECT().
 					Save(mock.Anything, mock.Anything).
@@ -68,7 +68,7 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 			setupMocks: func(
 				users *MockUserRepository,
 				_ *MockTokenRepository,
-				_ *MockEventPublisher,
+				_ *MockOutboxRepository,
 			) {
 				users.EXPECT().
 					Save(mock.Anything, mock.Anything).
@@ -82,7 +82,7 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 			setupMocks: func(
 				users *MockUserRepository,
 				tokens *MockTokenRepository,
-				_ *MockEventPublisher,
+				_ *MockOutboxRepository,
 			) {
 				users.EXPECT().
 					Save(mock.Anything, mock.Anything).
@@ -95,12 +95,12 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 			wantErr: ErrInternal,
 		},
 		{
-			name:  "publisher failed but registration succeeds",
+			name:  "save outbox failed",
 			input: validInput,
 			setupMocks: func(
 				users *MockUserRepository,
 				tokens *MockTokenRepository,
-				publisher *MockEventPublisher,
+				outbox *MockOutboxRepository,
 			) {
 				users.EXPECT().
 					Save(mock.Anything, mock.Anything).
@@ -110,10 +110,11 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 					SaveRefresh(mock.Anything, mock.Anything).
 					Return(nil)
 
-				publisher.EXPECT().
-					PublishUserCreated(mock.Anything, mock.Anything).
-					Return(errors.New("kafka unavailable"))
+				outbox.EXPECT().
+					SaveUserCreated(mock.Anything, mock.Anything).
+					Return(errors.New("database unavailable"))
 			},
+			wantErr: ErrInternal,
 		},
 		{
 			name:  "success",
@@ -121,7 +122,7 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 			setupMocks: func(
 				users *MockUserRepository,
 				tokens *MockTokenRepository,
-				publisher *MockEventPublisher,
+				outbox *MockOutboxRepository,
 			) {
 				users.EXPECT().
 					Save(
@@ -144,8 +145,8 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 					).
 					Return(nil)
 
-				publisher.EXPECT().
-					PublishUserCreated(
+				outbox.EXPECT().
+					SaveUserCreated(
 						mock.Anything,
 						mock.MatchedBy(func(user auth.User) bool {
 							return user.ID != "" &&
@@ -161,15 +162,15 @@ func TestRegisterUseCase_Execute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			users := NewMockUserRepository(t)
 			tokens := NewMockTokenRepository(t)
-			publisher := NewMockEventPublisher(t)
+			outbox := NewMockOutboxRepository(t)
 
 			if tt.setupMocks != nil {
-				tt.setupMocks(users, tokens, publisher)
+				tt.setupMocks(users, tokens, outbox)
 			}
 
-			transactor := testTransactor(users, tokens)
+			transactor := testTransactor(users, tokens, outbox)
 
-			uc := NewRegisterUseCase(transactor, tokenSvc, publisher)
+			uc := NewRegisterUseCase(transactor, tokenSvc)
 
 			output, err := uc.Execute(context.Background(), tt.input)
 
