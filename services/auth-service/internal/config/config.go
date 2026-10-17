@@ -11,7 +11,7 @@ type Config struct {
 	Server   ServerConfig   `envPrefix:"SERVER_"`
 	Postgres PostgresConfig `envPrefix:"POSTGRES_"`
 	Token    TokenConfig    `envPrefix:"TOKEN_"`
-	Kafka    KafkaConfig    `envPrefix:"KAFKA_"`
+	NATS     NATSConfig     `envPrefix:"NATS_"`
 	Log      LogConfig      `envPrefix:"LOG_"`
 }
 
@@ -38,9 +38,14 @@ type TokenConfig struct {
 	RefreshTTL     time.Duration `env:"REFRESH_TTL" envDefault:"720h"`
 }
 
-type KafkaConfig struct {
-	Brokers []string `env:"BROKERS,required,notEmpty"`
-	Topic   string   `env:"TOPIC,required,notEmpty"`
+type NATSConfig struct {
+	URLs           []string      `env:"URLS,required,notEmpty" envSeparator:","`
+	Name           string        `env:"NAME" envDefault:"auth-service"`
+	ConnectTimeout time.Duration `env:"CONNECT_TIMEOUT" envDefault:"5s"`
+	ReconnectWait  time.Duration `env:"RECONNECT_WAIT" envDefault:"2s"`
+	MaxReconnects  int           `env:"MAX_RECONNECTS" envDefault:"-1"`
+	DrainTimeout   time.Duration `env:"DRAIN_TIMEOUT" envDefault:"10s"`
+	OutboxInterval time.Duration `env:"OUTBOX_INTERVAL" envDefault:"1s"`
 }
 
 type LogConfig struct {
@@ -75,6 +80,10 @@ func (c Config) Validate() error {
 			c.Postgres.MinIdleConns,
 			c.Postgres.MaxConns,
 		)
+	}
+
+	if len(c.NATS.URLs) == 0 || c.NATS.OutboxInterval <= 0 {
+		return fmt.Errorf("invalid NATS configuration")
 	}
 
 	return nil
