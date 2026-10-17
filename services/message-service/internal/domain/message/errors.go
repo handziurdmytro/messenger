@@ -4,7 +4,7 @@ import "errors"
 
 var (
 	ErrMessageEmpty        = errors.New("message body is empty")
-	ErrRoomIDEmpty         = errors.New("room id is empty")
+	ErrChatIDEmpty         = errors.New("chat id is empty")
 	ErrFromUserEmpty       = errors.New("from user is empty")
 	ErrIDEmpty             = errors.New("message id is empty")
 	ErrTypeInvalid         = errors.New("message type is invalid")

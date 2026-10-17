@@ -1,51 +1,57 @@
 package message
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	contract "github.com/handziurdmytro/messenger/pkg/contracts/message"
 )
 
 type Message struct {
 	ID        ID
-	RoomID    RoomID
+	ChatID    ChatID
 	FromUser  string
 	Type      Type
-	Payload   Payload
+	Payload   json.RawMessage
 	CreatedAt time.Time
 	EditedAt  *time.Time
 	DeletedAt *time.Time
 }
 
-func New(roomID RoomID, fromUser string, payload Payload, msgType Type) (Message, error) {
-	if err := validateMessage(roomID, fromUser, msgType, payload); err != nil {
+func New(id ID, chatID ChatID, fromUser string, payload json.RawMessage, msgType Type) (Message, error) {
+	if strings.TrimSpace(string(id)) == "" {
+		return Message{}, ErrIDEmpty
+	}
+	if err := validateMessage(chatID, fromUser, msgType, payload); err != nil {
 		return Message{}, err
 	}
 
 	return Message{
-		ID:        ID(uuid.NewString()),
-		RoomID:    roomID,
+		ID:        id,
+		ChatID:    chatID,
 		FromUser:  fromUser,
 		Type:      msgType,
-		Payload:   payload,
+		Payload:   clonePayload(payload),
 		CreatedAt: time.Now().UTC(),
 	}, nil
 }
 
-func Restore(id ID, roomID RoomID, fromUser string, msgType Type, payload Payload, createdAt time.Time, editedAt, deletedAt *time.Time) (Message, error) {
+func Restore(id ID, chatID ChatID, fromUser string, msgType Type, payload json.RawMessage, createdAt time.Time, editedAt, deletedAt *time.Time) (Message, error) {
 	if strings.TrimSpace(string(id)) == "" {
 		return Message{}, ErrIDEmpty
 	}
 	if createdAt.IsZero() {
 		return Message{}, ErrCreatedAtZero
 	}
-	if err := validateIdentity(roomID, fromUser, msgType); err != nil {
+	if err := validateIdentity(chatID, fromUser, msgType); err != nil {
 		return Message{}, err
 	}
+
 	if editedAt != nil && (!msgType.CanEdit() || editedAt.IsZero() || editedAt.Before(createdAt)) {
 		return Message{}, ErrInvalidTimestamp
 	}
+
 	if deletedAt != nil {
 		if !msgType.CanDelete() {
 			return Message{}, ErrMessageNotDeletable
@@ -53,7 +59,7 @@ func Restore(id ID, roomID RoomID, fromUser string, msgType Type, payload Payloa
 		if deletedAt.IsZero() || deletedAt.Before(createdAt) || (editedAt != nil && deletedAt.Before(*editedAt)) {
 			return Message{}, ErrInvalidTimestamp
 		}
-		if payload != nil {
+		if len(payload) != 0 {
 			return Message{}, ErrPayloadTypeMismatch
 		}
 	} else if err := validatePayload(msgType, payload); err != nil {
@@ -62,17 +68,17 @@ func Restore(id ID, roomID RoomID, fromUser string, msgType Type, payload Payloa
 
 	return Message{
 		ID:        id,
-		RoomID:    roomID,
+		ChatID:    chatID,
 		FromUser:  fromUser,
 		Type:      msgType,
-		Payload:   payload,
-		CreatedAt: createdAt,
+		Payload:   clonePayload(payload),
+		CreatedAt: createdAt.UTC(),
 		EditedAt:  cloneTime(editedAt),
 		DeletedAt: cloneTime(deletedAt),
 	}, nil
 }
 
-func (m *Message) Edit(newPayload Payload, now time.Time) error {
+func (m *Message) Edit(newPayload json.RawMessage, now time.Time) error {
 	if m.DeletedAt != nil {
 		return ErrMessageDeleted
 	}
@@ -86,8 +92,8 @@ func (m *Message) Edit(newPayload Payload, now time.Time) error {
 		return err
 	}
 
-	m.Payload = newPayload
-	t := now
+	m.Payload = clonePayload(newPayload)
+	t := now.UTC()
 	m.EditedAt = &t
 	return nil
 }
@@ -104,7 +110,7 @@ func (m *Message) Delete(now time.Time) error {
 	}
 
 	m.Payload = nil
-	t := now
+	t := now.UTC()
 	m.DeletedAt = &t
 	return nil
 }
@@ -116,16 +122,16 @@ func (m *Message) validateChangeTime(now time.Time) error {
 	return nil
 }
 
-func validateMessage(roomID RoomID, fromUser string, msgType Type, payload Payload) error {
-	if err := validateIdentity(roomID, fromUser, msgType); err != nil {
+func validateMessage(chatID ChatID, fromUser string, msgType Type, payload json.RawMessage) error {
+	if err := validateIdentity(chatID, fromUser, msgType); err != nil {
 		return err
 	}
 	return validatePayload(msgType, payload)
 }
 
-func validateIdentity(roomID RoomID, fromUser string, msgType Type) error {
-	if strings.TrimSpace(string(roomID)) == "" {
-		return ErrRoomIDEmpty
+func validateIdentity(chatID ChatID, fromUser string, msgType Type) error {
+	if strings.TrimSpace(string(chatID)) == "" {
+		return ErrChatIDEmpty
 	}
 	if strings.TrimSpace(fromUser) == "" {
 		return ErrFromUserEmpty
@@ -134,6 +140,17 @@ func validateIdentity(roomID RoomID, fromUser string, msgType Type) error {
 		return ErrTypeInvalid
 	}
 	return nil
+}
+
+func validatePayload(msgType Type, payload json.RawMessage) error {
+	return contract.ValidatePayload(contract.Type(msgType), payload)
+}
+
+func clonePayload(payload json.RawMessage) json.RawMessage {
+	if payload == nil {
+		return nil
+	}
+	return append(json.RawMessage(nil), payload...)
 }
 
 func cloneTime(t *time.Time) *time.Time {

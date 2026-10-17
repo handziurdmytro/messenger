@@ -2,7 +2,7 @@ package message
 
 type (
 	ID     string
-	RoomID string
+	ChatID string
 	Type   string
 )
 
@@ -37,17 +37,4 @@ func (t Type) CanEdit() bool {
 
 func (t Type) CanDelete() bool {
 	return t.Valid() && t != TypeSystem
-}
-
-func (t Type) Accepts(p Payload) bool {
-	switch t {
-	case TypeText, TypeSystem:
-		_, ok := p.(TextPayload)
-		return ok
-	case TypeImage, TypeMusic, TypeVideo, TypeFile, TypeAudioMessage, TypeVideoMessage:
-		_, ok := p.(FilePayload)
-		return ok
-	default:
-		return false
-	}
 }
