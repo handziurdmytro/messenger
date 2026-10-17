@@ -5,6 +5,7 @@ import "context"
 type Repositories struct {
 	Users  UserRepository
 	Tokens TokenRepository
+	Outbox OutboxRepository
 }
 
 type Transactor interface {

@@ -7,7 +7,6 @@ import (
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
-	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
 type TokenIssuer interface {
@@ -17,19 +16,13 @@ type TokenIssuer interface {
 type RegisterUseCase struct {
 	transactor outbound.Transactor
 	tokenSvc   TokenIssuer
-	publisher  outbound.EventPublisher
 }
 
 func NewRegisterUseCase(
 	transactor outbound.Transactor,
 	tokenSvc TokenIssuer,
-	publisher outbound.EventPublisher,
 ) *RegisterUseCase {
-	return &RegisterUseCase{
-		transactor: transactor,
-		tokenSvc:   tokenSvc,
-		publisher:  publisher,
-	}
+	return &RegisterUseCase{transactor: transactor, tokenSvc: tokenSvc}
 }
 
 type RegisterInput struct {
@@ -57,27 +50,17 @@ func (uc *RegisterUseCase) Execute(ctx context.Context, input RegisterInput) (Re
 		if err := repos.Users.Save(ctx, user); err != nil {
 			return err
 		}
-
-		return repos.Tokens.SaveRefresh(ctx, refresh)
+		if err := repos.Tokens.SaveRefresh(ctx, refresh); err != nil {
+			return err
+		}
+		return repos.Outbox.SaveUserCreated(ctx, user)
 	})
 	if err != nil {
 		if errors.Is(err, auth.ErrEmailTaken) {
 			return RegisterOutput{}, auth.ErrEmailTaken
 		}
-
 		return RegisterOutput{}, errkit.Wrap(ErrInternal, "persist registration", err)
 	}
 
-	if err := uc.publisher.PublishUserCreated(ctx, user); err != nil {
-		logger.WithComponent(logger.FromContext(ctx), "auth").Error(
-			"publish user.created failed",
-			logger.KeyUserID, user.ID,
-			logger.KeyError, err,
-		)
-	}
-
-	return RegisterOutput{
-		Tokens: pair,
-		UserID: user.ID,
-	}, nil
+	return RegisterOutput{Tokens: pair, UserID: user.ID}, nil
 }

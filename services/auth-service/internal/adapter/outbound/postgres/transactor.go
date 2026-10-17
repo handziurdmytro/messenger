@@ -32,6 +32,7 @@ func (t *Transactor) WithinTransaction(ctx context.Context, fn func(outbound.Rep
 	repos := outbound.Repositories{
 		Users:  NewUserRepository(q),
 		Tokens: NewTokenRepository(q),
+		Outbox: NewOutboxRepository(tx),
 	}
 
 	if err := fn(repos); err != nil {
