@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/handziurdmytro/messenger/message-service/internal/port/outbound"
+	"github.com/handziurdmytro/messenger/message-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
 )
 
@@ -33,7 +33,7 @@ func (r *FileRepository) Upload(ctx context.Context, key string, file io.Reader,
 		ContentType: aws.String(contentType),
 	})
 	if err != nil {
-		return errkit.Wrap(outbound.ErrPersistence, "s3: upload file", err)
+		return errkit.Wrap(usecase.ErrPersistence, "s3: upload file", err)
 	}
 	return nil
 }
@@ -44,7 +44,7 @@ func (r *FileRepository) Download(ctx context.Context, key string) (io.Reader, e
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return nil, errkit.Wrap(outbound.ErrPersistence, "s3: download file", err)
+		return nil, errkit.Wrap(usecase.ErrPersistence, "s3: download file", err)
 	}
 	return result.Body, nil
 }
@@ -55,7 +55,7 @@ func (r *FileRepository) Delete(ctx context.Context, key string) error {
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return errkit.Wrap(outbound.ErrPersistence, "s3: delete file", err)
+		return errkit.Wrap(usecase.ErrPersistence, "s3: delete file", err)
 	}
 	return nil
 }
