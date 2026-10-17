@@ -1,11 +1,11 @@
-package outbound
+package usecase
 
 import (
 	"context"
 
-	"github.com/handziurdmytro/messenger/message-service/internal/domain/message"
+	"github.com/handziurdmytro/messenger/pkg/contracts/message"
 )
 
 type MessagePublisher interface {
-	Publish(ctx context.Context, msg message.Message) error
+	Publish(ctx context.Context, event message.CreatedEvent) error
 }
