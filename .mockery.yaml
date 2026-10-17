@@ -1,0 +1,32 @@
+template: testify
+formatter: goimports
+force-file-write: true
+
+packages:
+  github.com/handziurdmytro/messenger/auth-service/internal/port/outbound:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}/../../usecase'
+      filename: mocks_test.go
+      pkgname: usecase
+
+  github.com/handziurdmytro/messenger/auth-service/internal/adapter/inbound/rest:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}'
+      filename: mocks_test.go
+      pkgname: rest
+
+  github.com/handziurdmytro/messenger/user-service/internal/port/outbound:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}/../../usecase'
+      filename: mocks_test.go
+      pkgname: usecase
+
+  github.com/handziurdmytro/messenger/user-service/internal/adapter/inbound/rest:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}'
+      filename: mocks_test.go
+      pkgname: rest

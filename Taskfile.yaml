@@ -1,0 +1,117 @@
+version: '3'
+
+vars:
+  MODULES:
+    sh: find services pkg -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort
+  KEYS_DIR: services/auth-service/keys
+
+tasks:
+  default:
+    desc: Show the list of available commands
+    cmds:
+      - task --list
+    silent: true
+
+  keys:
+    desc: "Generate RSA .pem keys for auth-service"
+    cmds:
+      - mkdir -p {{.KEYS_DIR}}
+      - openssl genpkey -algorithm RSA -out {{.KEYS_DIR}}/private.pem -pkeyopt rsa_keygen_bits:2048
+      - openssl rsa -pubout -in {{.KEYS_DIR}}/private.pem -out {{.KEYS_DIR}}/public.pem
+      - chmod 644 {{.KEYS_DIR}}/private.pem {{.KEYS_DIR}}/public.pem
+    status:
+      - test -f {{.KEYS_DIR}}/private.pem
+      - test -f {{.KEYS_DIR}}/public.pem
+
+  keys-force:
+    desc: "Force regenerate RSA .pem keys for auth-service"
+    cmds:
+      - rm -f {{.KEYS_DIR}}/private.pem {{.KEYS_DIR}}/public.pem
+      - task: keys
+
+  up:
+    desc: "Generate keys and start the stack via Docker Compose"
+    deps: [keys]
+    cmds:
+      - docker compose up --build -d
+
+  down:
+    desc: "Stop all containers"
+    cmds:
+      - docker compose down
+
+  tidy:
+    desc: "go mod tidy in every module + go work sync"
+    cmds:
+      - for: { var: MODULES, split: "\n" }
+        cmd: cd {{.ITEM}} && go mod tidy
+      - go work sync
+
+  vet:
+    desc: "go vet in every module"
+    cmds:
+      - for: { var: MODULES, split: "\n" }
+        cmd: cd {{.ITEM}} && go vet ./...
+
+  fmt:
+    desc: "gofmt -l -w in every module"
+    cmds:
+      - for: { var: MODULES, split: "\n" }
+        cmd: cd {{.ITEM}} && gofmt -l -w .
+
+  test:
+    desc: "go test ./... in every module"
+    cmds:
+      - for: { var: MODULES, split: "\n" }
+        cmd: cd {{.ITEM}} && go test ./...
+
+  build:
+    desc: "go build ./... in every module (compile check)"
+    cmds:
+      - for: { var: MODULES, split: "\n" }
+        cmd: cd {{.ITEM}} && go build ./...
+
+  check:
+    desc: "tidy + vet + test in one call (handy before a commit/PR)"
+    cmds:
+      - task: tidy
+      - task: vet
+      - task: test
+
+  clean:
+    desc: "Clean Go build and test cache"
+    cmds:
+      - go clean -cache -testcache
+
+  mocks:
+    desc: "Generate all mocks for the project"
+    cmds:
+      - task: mocks-auth
+      - task: mocks-user
+
+  mocks-auth:
+    desc: "Generate mocks strictly for auth-service"
+    dir: services/auth-service
+    cmds:
+      - mockery
+
+  mocks-user:
+    desc: "Generate mocks strictly for user-service"
+    dir: services/user-service
+    cmds:
+      - mockery
+
+  swagger:
+    desc: Centralized Swagger generation for all microservices
+    cmds:
+      - |
+        for dir in services/*; do
+          if [ -f "$dir/cmd/server/main.go" ]; then
+            echo "Generating Swagger for $dir..."
+            (cd "$dir" && swag init -g cmd/server/main.go -o docs)
+          fi
+        done
+
+  sqlgen:
+    cmds:
+      - sqlc generate -f .sqlc.yaml

@@ -7,3 +7,12 @@ node_modules/
 
 *.zip
 *.txt
+
+keys/
+
+.gitignore
+
+context.md
+coverage.out
+
+AGENTS
