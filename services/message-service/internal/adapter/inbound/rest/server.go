@@ -23,12 +23,13 @@ func NewServer(
 	upload *usecase.UploadFile,
 	download *usecase.DownloadFile,
 	baseLogger *slog.Logger,
+	chatServiceURL string,
 ) *Server {
 	handler := NewHandler(history, get, upload, download)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /chats/{chat_id}/messages", handler.GetHistory)
-	mux.HandleFunc("GET /chats/{chat_id}/messages/{message_id}", handler.GetMessage)
+	mux.HandleFunc("GET /chats/{chat_id}/messages", authorizeChat(chatServiceURL, handler.GetHistory))
+	mux.HandleFunc("GET /chats/{chat_id}/messages/{message_id}", authorizeChat(chatServiceURL, handler.GetMessage))
 	mux.HandleFunc("POST /files", handler.UploadFile)
 	mux.HandleFunc("GET /files/{id}", handler.DownloadFile)
 

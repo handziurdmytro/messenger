@@ -32,9 +32,9 @@ type MessageRepository struct {
 	session *gocql.Session
 }
 
-func NewMessageRepository(hosts []string) (*MessageRepository, error) {
+func NewMessageRepository(hosts []string, keyspace string) (*MessageRepository, error) {
 	cluster := gocql.NewCluster(hosts...)
-	cluster.Keyspace = "messenger"
+	cluster.Keyspace = keyspace
 	cluster.Consistency = gocql.Quorum
 	cluster.SerialConsistency = gocql.Serial
 	cluster.Timeout = 5 * time.Second

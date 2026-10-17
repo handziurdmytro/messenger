@@ -29,7 +29,7 @@ type App struct {
 }
 
 func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error) {
-	repo, err := scylla.NewMessageRepository(cfg.Scylla.Hosts)
+	repo, err := scylla.NewMessageRepository(cfg.Scylla.Hosts, cfg.Scylla.Keyspace)
 	if err != nil {
 		return nil, fmt.Errorf("init scylla: %w", err)
 	}
@@ -79,6 +79,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		usecase.NewUploadFileUseCase(files),
 		usecase.NewDownloadFileUseCase(files),
 		log,
+		cfg.ChatServiceURL,
 	)
 
 	return &App{

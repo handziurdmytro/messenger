@@ -8,11 +8,12 @@ import (
 )
 
 type Config struct {
-	Server ServerConfig `envPrefix:"SERVER_"`
-	Scylla ScyllaConfig `envPrefix:"SCYLLA_"`
-	S3     S3Config     `envPrefix:"S3_"`
-	NATS   NATSConfig   `envPrefix:"NATS_"`
-	Log    LogConfig    `envPrefix:"LOG_"`
+	ChatServiceURL string       `env:"CHAT_SERVICE_URL" envDefault:"http://chat-service:2904"`
+	Server         ServerConfig `envPrefix:"SERVER_"`
+	Scylla         ScyllaConfig `envPrefix:"SCYLLA_"`
+	S3             S3Config     `envPrefix:"S3_"`
+	NATS           NATSConfig   `envPrefix:"NATS_"`
+	Log            LogConfig    `envPrefix:"LOG_"`
 }
 
 type ServerConfig struct {
@@ -20,7 +21,8 @@ type ServerConfig struct {
 }
 
 type ScyllaConfig struct {
-	Hosts []string `env:"HOSTS,required,notEmpty" envSeparator:","`
+	Hosts    []string `env:"HOSTS,required,notEmpty" envSeparator:","`
+	Keyspace string   `env:"KEYSPACE" envDefault:"messenger"`
 }
 
 type S3Config struct {
