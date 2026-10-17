@@ -1,4 +1,4 @@
-CREATE TABLE messenger.message_locations
+CREATE TABLE IF NOT EXISTS messenger.message_locations
 (
     chat_id      text,
     message_id   uuid,

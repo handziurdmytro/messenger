@@ -1,4 +1,4 @@
-CREATE TABLE messenger.messages_by_chat
+CREATE TABLE IF NOT EXISTS messenger.messages_by_chat
 (
     chat_id    text,
     bucket     int,
