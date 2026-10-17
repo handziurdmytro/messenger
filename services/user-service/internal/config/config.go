@@ -15,7 +15,7 @@ var ErrConfig = errors.New("config error")
 type Config struct {
 	Server   ServerConfig   `envPrefix:"SERVER_"`
 	Postgres PostgresConfig `envPrefix:"POSTGRES_"`
-	Kafka    KafkaConfig    `envPrefix:"KAFKA_"`
+	NATS     NATSConfig     `envPrefix:"NATS_"`
 	Log      LogConfig      `envPrefix:"LOG_"`
 }
 
@@ -36,10 +36,15 @@ type PostgresConfig struct {
 	ConnectTimeout        time.Duration `env:"CONNECT_TIMEOUT" envDefault:"5s"`
 }
 
-type KafkaConfig struct {
-	Brokers []string `env:"BROKERS,required,notEmpty"`
-	Topic   string   `env:"TOPIC,required,notEmpty"`
-	GroupID string   `env:"GROUP_ID,required,notEmpty"`
+type NATSConfig struct {
+	URLs           []string      `env:"URLS,required,notEmpty" envSeparator:","`
+	Name           string        `env:"NAME" envDefault:"user-service"`
+	ConnectTimeout time.Duration `env:"CONNECT_TIMEOUT" envDefault:"5s"`
+	ReconnectWait  time.Duration `env:"RECONNECT_WAIT" envDefault:"2s"`
+	MaxReconnects  int           `env:"MAX_RECONNECTS" envDefault:"-1"`
+	DrainTimeout   time.Duration `env:"DRAIN_TIMEOUT" envDefault:"10s"`
+	Stream         string        `env:"STREAM" envDefault:"USERS"`
+	Consumer       string        `env:"CONSUMER" envDefault:"user-created"`
 }
 
 type LogConfig struct {
@@ -80,6 +85,10 @@ func (c Config) Validate() error {
 			c.Postgres.MinIdleConns,
 			c.Postgres.MaxConns,
 		)
+	}
+
+	if len(c.NATS.URLs) == 0 || c.NATS.Stream == "" || c.NATS.Consumer == "" {
+		return fmt.Errorf("invalid NATS configuration")
 	}
 
 	return nil
