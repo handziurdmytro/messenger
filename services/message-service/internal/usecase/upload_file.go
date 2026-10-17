@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/handziurdmytro/messenger/message-service/internal/port/outbound"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
 )
 
@@ -39,15 +38,15 @@ func (in UploadFileInput) Validate() error {
 	return nil
 }
 
-type UploadFileUseCase struct {
-	fileRepository outbound.FileRepository
+type UploadFile struct {
+	fileRepository FileRepository
 }
 
-func NewUploadFileUseCase(repo outbound.FileRepository) *UploadFileUseCase {
-	return &UploadFileUseCase{fileRepository: repo}
+func NewUploadFileUseCase(repo FileRepository) *UploadFile {
+	return &UploadFile{fileRepository: repo}
 }
 
-func (uc *UploadFileUseCase) Execute(ctx context.Context, in UploadFileInput) error {
+func (uc *UploadFile) Execute(ctx context.Context, in UploadFileInput) error {
 	if err := in.Validate(); err != nil {
 		return err
 	}

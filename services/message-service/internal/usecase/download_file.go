@@ -5,19 +5,18 @@ import (
 	"io"
 	"strings"
 
-	"github.com/handziurdmytro/messenger/message-service/internal/port/outbound"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
 )
 
-type DownloadFileUseCase struct {
-	fileRepository outbound.FileRepository
+type DownloadFile struct {
+	fileRepository FileRepository
 }
 
-func NewDownloadFileUseCase(repo outbound.FileRepository) *DownloadFileUseCase {
-	return &DownloadFileUseCase{fileRepository: repo}
+func NewDownloadFileUseCase(repo FileRepository) *DownloadFile {
+	return &DownloadFile{fileRepository: repo}
 }
 
-func (uc *DownloadFileUseCase) Execute(ctx context.Context, key string) (io.Reader, error) {
+func (uc *DownloadFile) Execute(ctx context.Context, key string) (io.Reader, error) {
 	if strings.TrimSpace(key) == "" {
 		return nil, ErrEmptyKey
 	}
