@@ -6,78 +6,110 @@ import (
 	"fmt"
 	"log/slog"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/handziurdmytro/messenger/auth-service/internal/adapter/inbound/rest"
-	kafkaoutbound "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/kafka"
+	natsoutbound "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/nats"
 	"github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/postgres"
 	db "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/auth-service/internal/config"
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/usecase"
+	"github.com/handziurdmytro/messenger/pkg/natskit"
 	"github.com/handziurdmytro/messenger/pkg/pgkit"
 )
 
 type App struct {
-	server    *rest.Server
-	publisher *kafkaoutbound.EventPublisher
-	closeDB   func()
+	server     *rest.Server
+	worker     *natsoutbound.OutboxWorker
+	natsClient *natskit.Client
+	closeDB    func()
+	done       chan struct{}
 }
 
-func New(ctx context.Context, cfg config.Config, baseLogger *slog.Logger) (*App, error) {
+func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error) {
 	pool, err := pgkit.NewPool(ctx, postgresConfig(cfg.Postgres))
 	if err != nil {
 		return nil, fmt.Errorf("init postgres: %w", err)
 	}
 
-	success := false
-	defer func() {
-		if !success {
-			pool.Close()
-		}
-	}()
-
-	queries := db.New(pool)
-	userRepo := postgres.NewUserRepository(queries)
-	tokenRepo := postgres.NewTokenRepository(queries)
-
 	privateKeyPEM, err := readFile(cfg.Token.PrivateKeyPath)
 	if err != nil {
+		pool.Close()
 		return nil, fmt.Errorf("read private key: %w", err)
 	}
 
 	tokenSvc, err := auth.NewTokenService(privateKeyPEM, cfg.Token.AccessTTL, cfg.Token.RefreshTTL)
 	if err != nil {
+		pool.Close()
 		return nil, fmt.Errorf("init token service: %w", err)
 	}
 
-	publisher := kafkaoutbound.NewEventPublisher(cfg.Kafka.Brokers, cfg.Kafka.Topic)
-
-	transactor := postgres.NewTransactor(pool)
-
-	registerUC := usecase.NewRegisterUseCase(transactor, tokenSvc, publisher)
-	loginUC := usecase.NewLoginUseCase(userRepo, tokenRepo, tokenSvc)
-	refreshUC := usecase.NewRefreshUseCase(userRepo, tokenRepo, transactor, tokenSvc)
-
-	server := rest.NewServer(cfg.Server.Port, registerUC, loginUC, refreshUC, tokenSvc, baseLogger)
-
-	app := &App{
-		server:    server,
-		publisher: publisher,
-		closeDB:   pool.Close,
+	maxReconnects := cfg.NATS.MaxReconnects
+	natsClient, err := natskit.Connect(ctx, natskit.Config{
+		URLs:           cfg.NATS.URLs,
+		Name:           cfg.NATS.Name,
+		ConnectTimeout: cfg.NATS.ConnectTimeout,
+		ReconnectWait:  cfg.NATS.ReconnectWait,
+		MaxReconnects:  &maxReconnects,
+		DrainTimeout:   cfg.NATS.DrainTimeout,
+	})
+	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("connect nats: %w", err)
 	}
 
-	success = true
-	return app, nil
+	queries := db.New(pool)
+	users := postgres.NewUserRepository(queries)
+	tokens := postgres.NewTokenRepository(queries)
+	transactor := postgres.NewTransactor(pool)
+
+	server := rest.NewServer(
+		cfg.Server.Port,
+		usecase.NewRegisterUseCase(transactor, tokenSvc),
+		usecase.NewLoginUseCase(users, tokens, tokenSvc),
+		usecase.NewRefreshUseCase(users, tokens, transactor, tokenSvc),
+		tokenSvc,
+		log,
+	)
+
+	return &App{
+		server:     server,
+		worker:     natsoutbound.NewOutboxWorker(pool, natskit.NewPublisher(natsClient.JS), log, cfg.NATS.OutboxInterval),
+		natsClient: natsClient,
+		closeDB:    pool.Close,
+		done:       make(chan struct{}),
+	}, nil
 }
 
-func (a *App) Start(_ context.Context) error {
-	return a.server.Start()
+func (a *App) Start(ctx context.Context) error {
+	defer close(a.done)
+
+	g, gCtx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		if err := a.server.Start(); err != nil {
+			return fmt.Errorf("auth REST: %w", err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		return a.worker.Run(gCtx)
+	})
+	return g.Wait()
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
-	err := errors.Join(
-		a.server.Shutdown(ctx),
-		a.publisher.Close(),
-	)
+	serverErr := a.server.Shutdown(ctx)
+
+	select {
+	case <-a.done:
+	case <-ctx.Done():
+		a.natsClient.Close()
+		a.closeDB()
+		return errors.Join(serverErr, ctx.Err())
+	}
+
+	drainErr := a.natsClient.Drain()
 	a.closeDB()
-	return err
+	return errors.Join(serverErr, drainErr)
 }
