@@ -21,7 +21,16 @@ func (e *ClientError) Error() string {
 func Error(w http.ResponseWriter, status int, msg string) error {
 	return Write(w, status, struct {
 		Error string `json:"error"`
-	}{msg})
+	}{
+		Error: msg,
+	})
+}
+
+func WriteReadError(w http.ResponseWriter, err error) error {
+	if ce, ok := errors.AsType[*ClientError](err); ok {
+		return Error(w, ce.Status, ce.Message)
+	}
+	return Error(w, http.StatusInternalServerError, "internal error")
 }
 
 func translateDecodeError(err error) error {

@@ -1,10 +1,13 @@
 go 1.27.0
 
 use (
-	./pkg/logger
-	./pkg/runner
+	./pkg/contracts
+	./pkg/errkit
 	./pkg/httpjson
-	./services/api-gateway
+	./pkg/logger
+	./pkg/natskit
+	./pkg/pgkit
+	./pkg/runner
 	./services/auth-service
 	./services/chat-service
 	./services/message-service
