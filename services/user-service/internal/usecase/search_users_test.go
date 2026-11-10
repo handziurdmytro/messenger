@@ -112,3 +112,15 @@ func TestSearchUsersUseCase_Execute(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchUsersUseCase_ExecuteOffset(t *testing.T) {
+	users := NewMockUserRepository(t)
+	users.EXPECT().Search(mock.Anything, "test", outbound.Page{Limit: 10, Offset: 30}).Return([]user.User{}, nil).Once()
+	users.EXPECT().Search(mock.Anything, "test", outbound.Page{Limit: 10}).Return([]user.User{}, nil).Once()
+
+	uc := NewSearchUsersUseCase(users)
+	_, err := uc.Execute(context.Background(), "test", 10, 30)
+	require.NoError(t, err)
+	_, err = uc.Execute(context.Background(), "test", 10, -5)
+	require.NoError(t, err)
+}

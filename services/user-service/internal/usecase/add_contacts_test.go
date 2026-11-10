@@ -60,6 +60,20 @@ func TestAddContactUseCase_Execute(t *testing.T) {
 			},
 		},
 		{
+			name:      "deleted target",
+			userID:    "user-1",
+			contactID: "user-2",
+			wantErr:   user.ErrNotFound,
+			setupMocks: func(users *MockUserRepository, _ *MockContactRepository) {
+				deleted := target
+				require.NoError(t, deleted.Delete(now.Add(time.Hour)))
+				users.EXPECT().
+					FindByID(mock.Anything, user.ID("user-2")).
+					Return(deleted, nil).
+					Once()
+			},
+		},
+		{
 			name:       "cannot add self",
 			userID:     "user-1",
 			contactID:  "user-1",

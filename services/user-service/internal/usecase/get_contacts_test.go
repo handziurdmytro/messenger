@@ -74,3 +74,27 @@ func TestGetContactsUseCase_Execute(t *testing.T) {
 		})
 	}
 }
+
+func TestGetContactsUseCase_ExecutePage(t *testing.T) {
+	tests := []struct {
+		name     string
+		limit    int
+		offset   int
+		wantPage outbound.Page
+	}{
+		{"default limit", 0, 0, outbound.Page{Limit: defaultContactsLimit}},
+		{"custom page", 10, 20, outbound.Page{Limit: 10, Offset: 20}},
+		{"too large limit", maxContactsLimit + 1, 0, outbound.Page{Limit: defaultContactsLimit}},
+		{"negative offset", 10, -1, outbound.Page{Limit: 10}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			contacts := NewMockContactRepository(t)
+			contacts.EXPECT().GetByUserID(mock.Anything, user.ID("owner-1"), tt.wantPage).Return([]user.User{}, nil).Once()
+
+			_, err := NewGetContactsUseCase(contacts).Execute(context.Background(), "owner-1", tt.limit, tt.offset)
+			require.NoError(t, err)
+		})
+	}
+}
