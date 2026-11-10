@@ -23,6 +23,15 @@ packages:
       dir: '{{.InterfaceDir}}/../../usecase'
       filename: mocks_test.go
       pkgname: usecase
+    interfaces:
+      UserRepository:
+        configs:
+          - dir: '{{.InterfaceDir}}/../../usecase'
+            filename: mocks_test.go
+            pkgname: usecase
+          - dir: services/user-service/internal/adapter/inbound/nats
+            filename: outbound_mocks_test.go
+            pkgname: nats
 
   github.com/handziurdmytro/messenger/user-service/internal/adapter/inbound/rest:
     config:
@@ -80,3 +89,22 @@ packages:
       dir: '{{.InterfaceDir}}'
       filename: mocks_test.go
       pkgname: natskit
+
+  github.com/nats-io/nats.go/jetstream:
+    interfaces:
+      Msg:
+        configs:
+          - dir: services/user-service/internal/adapter/inbound/nats
+            filename: jetstream_mocks_test.go
+            pkgname: nats
+          - dir: services/chat-service/internal/adapter/inbound/nats
+            filename: jetstream_mocks_test.go
+            pkgname: nats
+      JetStream:
+        configs:
+          - dir: services/user-service/internal/adapter/inbound/nats
+            filename: jetstream_mocks_test.go
+            pkgname: nats
+          - dir: services/chat-service/internal/adapter/inbound/nats
+            filename: jetstream_mocks_test.go
+            pkgname: nats
