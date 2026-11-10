@@ -26,6 +26,7 @@ func NewServer(
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chats", handler.CreateChat)
 	mux.HandleFunc("GET /chats/{id}", handler.GetChat)
+	mux.HandleFunc("DELETE /chats/{id}", handler.DeleteChat)
 	mux.HandleFunc("GET /chats/{id}/participants", handler.ListParticipants)
 	mux.HandleFunc("GET /chats", handler.ListChats)
 

@@ -25,16 +25,22 @@ type ListChatsUseCase interface {
 	Execute(ctx context.Context, userID chat.UserID, limit int, before *usecase.ChatCursor) (usecase.ChatList, error)
 }
 
+type DeleteChatUseCase interface {
+	Execute(ctx context.Context, chatID chat.ID, userID chat.UserID) error
+}
+
 type Services struct {
 	CreateChat CreateChatUseCase
 	GetChat    GetChatUseCase
 	ListChats  ListChatsUseCase
+	DeleteChat DeleteChatUseCase
 }
 
 type Handler struct {
 	createChat CreateChatUseCase
 	getChat    GetChatUseCase
 	listChats  ListChatsUseCase
+	deleteChat DeleteChatUseCase
 }
 
 func NewHandler(services Services) *Handler {
@@ -42,6 +48,7 @@ func NewHandler(services Services) *Handler {
 		createChat: services.CreateChat,
 		getChat:    services.GetChat,
 		listChats:  services.ListChats,
+		deleteChat: services.DeleteChat,
 	}
 }
 
@@ -154,6 +161,27 @@ func (h *Handler) ListChats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+func (h *Handler) DeleteChat(w http.ResponseWriter, r *http.Request) {
+	userID, err := authenticatedUser(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	chatID, err := chat.ParseID(r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chat ID")
+		return
+	}
+
+	if err := h.deleteChat.Execute(r.Context(), chatID, userID); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 type participantResponse struct {
 	UserID chat.UserID `json:"user_id"`
 }
@@ -199,6 +227,8 @@ func (h *Handler) handleError(w http.ResponseWriter, r *http.Request, err error)
 		errors.Is(err, chat.ErrInvalidUserID),
 		errors.Is(err, chat.ErrInvalidChatID):
 		writeError(w, http.StatusBadRequest, "invalid chat request")
+	case errors.Is(err, chat.ErrUnsupportedChatType):
+		writeError(w, http.StatusUnprocessableEntity, "unsupported chat type")
 	default:
 		logger.FromContext(r.Context()).Error("chat request failed", logger.KeyError, err)
 		writeError(w, http.StatusInternalServerError, "internal server error")

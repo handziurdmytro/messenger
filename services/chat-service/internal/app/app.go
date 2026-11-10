@@ -91,6 +91,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			CreateChat: createChatUC,
 			GetChat:    getChatUC,
 			ListChats:  usecase.NewListChats(chatRepo),
+			DeleteChat: usecase.NewDeleteChat(chatRepo),
 		},
 		wsHandler,
 		logger,
