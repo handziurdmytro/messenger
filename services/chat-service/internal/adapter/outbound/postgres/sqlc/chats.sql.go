@@ -74,3 +74,50 @@ func (q *Queries) FindPrivateByParticipants(ctx context.Context, privateKey pgty
 	)
 	return i, err
 }
+
+const listChatsByUser = `-- name: ListChatsByUser :many
+SELECT c.id,
+       c.type,
+       c.created_at,
+       array_agg(p.user_id ORDER BY p.user_id)::uuid[] AS participant_ids
+FROM chats c
+         JOIN participants p ON p.chat_id = c.id
+WHERE EXISTS (SELECT 1
+              FROM participants mine
+              WHERE mine.chat_id = c.id
+                AND mine.user_id = $1)
+GROUP BY c.id
+ORDER BY c.created_at DESC, c.id DESC
+`
+
+type ListChatsByUserRow struct {
+	ID             uuid.UUID   `json:"id"`
+	Type           string      `json:"type"`
+	CreatedAt      time.Time   `json:"created_at"`
+	ParticipantIds []uuid.UUID `json:"participant_ids"`
+}
+
+func (q *Queries) ListChatsByUser(ctx context.Context, userID uuid.UUID) ([]ListChatsByUserRow, error) {
+	rows, err := q.db.Query(ctx, listChatsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListChatsByUserRow{}
+	for rows.Next() {
+		var i ListChatsByUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.CreatedAt,
+			&i.ParticipantIds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
