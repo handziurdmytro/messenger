@@ -13,6 +13,7 @@ import (
 var (
 	ErrInvalidEditedEvent  = errors.New("invalid message edited event")
 	ErrInvalidDeletedEvent = errors.New("invalid message deleted event")
+	ErrInvalidReadEvent    = errors.New("invalid message read event")
 )
 
 type EditedEvent struct {
@@ -54,6 +55,29 @@ func (e DeletedEvent) Validate() error {
 	}
 	if e.DeletedAt.IsZero() {
 		return ErrInvalidDeletedEvent
+	}
+	return nil
+}
+
+type ReadEvent struct {
+	ChatID    string    `json:"chat_id"`
+	UserID    string    `json:"user_id"`
+	MessageID string    `json:"message_id"`
+	ReadAt    time.Time `json:"read_at"`
+}
+
+func (e ReadEvent) Validate() error {
+	if _, err := uuid.Parse(e.ChatID); err != nil {
+		return errkit.Wrap(ErrInvalidReadEvent, "parse chat ID", err)
+	}
+	if _, err := uuid.Parse(e.UserID); err != nil {
+		return errkit.Wrap(ErrInvalidReadEvent, "parse user ID", err)
+	}
+	if _, err := uuid.Parse(e.MessageID); err != nil {
+		return errkit.Wrap(ErrInvalidReadEvent, "parse message ID", err)
+	}
+	if e.ReadAt.IsZero() {
+		return ErrInvalidReadEvent
 	}
 	return nil
 }

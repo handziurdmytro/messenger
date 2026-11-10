@@ -5,4 +5,5 @@ const (
 	SubjectMessageCreated = "messages.created"
 	SubjectMessageEdited  = "messages.edited"
 	SubjectMessageDeleted = "messages.deleted"
+	SubjectMessageRead    = "messages.read"
 )
