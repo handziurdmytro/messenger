@@ -6,6 +6,7 @@ package usecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
@@ -194,6 +195,69 @@ func (_c *MockOutboxRepository_SaveUserCreated_Call) Return(err error) *MockOutb
 }
 
 func (_c *MockOutboxRepository_SaveUserCreated_Call) RunAndReturn(run func(ctx context.Context, user auth.User) error) *MockOutboxRepository_SaveUserCreated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SaveUserDeleted provides a mock function for the type MockOutboxRepository
+func (_mock *MockOutboxRepository) SaveUserDeleted(ctx context.Context, userID auth.UserID, deletedAt time.Time) error {
+	ret := _mock.Called(ctx, userID, deletedAt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveUserDeleted")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.UserID, time.Time) error); ok {
+		r0 = returnFunc(ctx, userID, deletedAt)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockOutboxRepository_SaveUserDeleted_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveUserDeleted'
+type MockOutboxRepository_SaveUserDeleted_Call struct {
+	*mock.Call
+}
+
+// SaveUserDeleted is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID auth.UserID
+//   - deletedAt time.Time
+func (_e *MockOutboxRepository_Expecter) SaveUserDeleted(ctx any, userID any, deletedAt any) *MockOutboxRepository_SaveUserDeleted_Call {
+	return &MockOutboxRepository_SaveUserDeleted_Call{Call: _e.mock.On("SaveUserDeleted", ctx, userID, deletedAt)}
+}
+
+func (_c *MockOutboxRepository_SaveUserDeleted_Call) Run(run func(ctx context.Context, userID auth.UserID, deletedAt time.Time)) *MockOutboxRepository_SaveUserDeleted_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.UserID
+		if args[1] != nil {
+			arg1 = args[1].(auth.UserID)
+		}
+		var arg2 time.Time
+		if args[2] != nil {
+			arg2 = args[2].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOutboxRepository_SaveUserDeleted_Call) Return(err error) *MockOutboxRepository_SaveUserDeleted_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockOutboxRepository_SaveUserDeleted_Call) RunAndReturn(run func(ctx context.Context, userID auth.UserID, deletedAt time.Time) error) *MockOutboxRepository_SaveUserDeleted_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -759,6 +823,63 @@ type MockUserRepository_Expecter struct {
 
 func (_m *MockUserRepository) EXPECT() *MockUserRepository_Expecter {
 	return &MockUserRepository_Expecter{mock: &_m.Mock}
+}
+
+// Delete provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) Delete(ctx context.Context, id auth.UserID) error {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Delete")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.UserID) error); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepository_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
+type MockUserRepository_Delete_Call struct {
+	*mock.Call
+}
+
+// Delete is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id auth.UserID
+func (_e *MockUserRepository_Expecter) Delete(ctx any, id any) *MockUserRepository_Delete_Call {
+	return &MockUserRepository_Delete_Call{Call: _e.mock.On("Delete", ctx, id)}
+}
+
+func (_c *MockUserRepository_Delete_Call) Run(run func(ctx context.Context, id auth.UserID)) *MockUserRepository_Delete_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.UserID
+		if args[1] != nil {
+			arg1 = args[1].(auth.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_Delete_Call) Return(err error) *MockUserRepository_Delete_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepository_Delete_Call) RunAndReturn(run func(ctx context.Context, id auth.UserID) error) *MockUserRepository_Delete_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FindByEmail provides a mock function for the type MockUserRepository

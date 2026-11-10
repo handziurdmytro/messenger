@@ -102,3 +102,15 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, id auth.UserID, has
 
 	return nil
 }
+
+func (r *UserRepository) Delete(ctx context.Context, id auth.UserID) error {
+	rows, err := r.q.DeleteUser(ctx, string(id))
+	if err != nil {
+		return errkit.Wrap(outbound.ErrPersistence, "delete user", err)
+	}
+	if rows == 0 {
+		return auth.ErrUserNotFound
+	}
+
+	return nil
+}
