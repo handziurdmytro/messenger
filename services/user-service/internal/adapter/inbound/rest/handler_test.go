@@ -48,7 +48,7 @@ func TestHandler_GetProfile(t *testing.T) {
 
 		h.GetProfile(rec, req)
 
-		assertJSON(t, rec, http.StatusOK, `{"id":"user-1","email":"alice@example.com","display_name":"alice","avatar_url":""}`)
+		assertJSON(t, rec, http.StatusOK, `{"id":"user-1","email":"alice@example.com","display_name":"alice","avatar_url":"","deleted":false}`)
 	})
 
 	t.Run("missing user id", func(t *testing.T) {
@@ -114,13 +114,13 @@ func TestHandler_UpdateProfile(t *testing.T) {
 			Once()
 
 		h := NewHandler(nil, updateProfile, nil, nil, nil)
-		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"display_name":"Alice Cooper","avatar_url":"https://example.com/avatar.png"}`))
+		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"display_name":"Alice Cooper","avatar_url":"https://example.com/avatar.png","deleted":false}`))
 		req.Header.Set("X-User-ID", u.ID().String())
 		rec := httptest.NewRecorder()
 
 		h.UpdateProfile(rec, req)
 
-		assertJSON(t, rec, http.StatusOK, `{"id":"user-1","email":"alice@example.com","display_name":"Alice Cooper","avatar_url":"https://example.com/avatar.png"}`)
+		assertJSON(t, rec, http.StatusOK, `{"id":"user-1","email":"alice@example.com","display_name":"Alice Cooper","avatar_url":"https://example.com/avatar.png","deleted":false}`)
 	})
 
 	t.Run("update display name only", func(t *testing.T) {
@@ -142,7 +142,7 @@ func TestHandler_UpdateProfile(t *testing.T) {
 
 		h.UpdateProfile(rec, req)
 
-		assertJSON(t, rec, http.StatusOK, `{"id":"user-1","email":"alice@example.com","display_name":"Alice Cooper","avatar_url":""}`)
+		assertJSON(t, rec, http.StatusOK, `{"id":"user-1","email":"alice@example.com","display_name":"Alice Cooper","avatar_url":"","deleted":false}`)
 	})
 
 	t.Run("clear avatar", func(t *testing.T) {
@@ -157,13 +157,13 @@ func TestHandler_UpdateProfile(t *testing.T) {
 			Once()
 
 		h := NewHandler(nil, updateProfile, nil, nil, nil)
-		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"avatar_url":""}`))
+		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"avatar_url":"","deleted":false}`))
 		req.Header.Set("X-User-ID", u.ID().String())
 		rec := httptest.NewRecorder()
 
 		h.UpdateProfile(rec, req)
 
-		assertJSON(t, rec, http.StatusOK, `{"id":"user-1","email":"alice@example.com","display_name":"alice","avatar_url":""}`)
+		assertJSON(t, rec, http.StatusOK, `{"id":"user-1","email":"alice@example.com","display_name":"alice","avatar_url":"","deleted":false}`)
 	})
 
 	t.Run("missing user id", func(t *testing.T) {
@@ -259,8 +259,8 @@ func TestHandler_SearchUsers(t *testing.T) {
 		h.SearchUsers(rec, req)
 
 		assertJSON(t, rec, http.StatusOK, `[
-			{"id":"user-1","email":"alice@example.com","display_name":"alice","avatar_url":""},
-			{"id":"user-2","email":"bob@example.com","display_name":"bob","avatar_url":""}
+			{"id":"user-1","email":"alice@example.com","display_name":"alice","avatar_url":"","deleted":false},
+			{"id":"user-2","email":"bob@example.com","display_name":"bob","avatar_url":"","deleted":false}
 		]`)
 	})
 
@@ -437,8 +437,8 @@ func TestHandler_GetContacts(t *testing.T) {
 		h.GetContacts(rec, req)
 
 		assertJSON(t, rec, http.StatusOK, `[
-			{"id":"user-2","email":"alice@example.com","display_name":"alice","avatar_url":""},
-			{"id":"user-3","email":"bob@example.com","display_name":"bob","avatar_url":""}
+			{"id":"user-2","email":"alice@example.com","display_name":"alice","avatar_url":"","deleted":false},
+			{"id":"user-3","email":"bob@example.com","display_name":"bob","avatar_url":"","deleted":false}
 		]`)
 	})
 

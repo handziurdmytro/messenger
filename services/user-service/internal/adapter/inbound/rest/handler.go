@@ -61,6 +61,7 @@ type userResponse struct {
 	Email       string `json:"email"`
 	DisplayName string `json:"display_name"`
 	AvatarURL   string `json:"avatar_url"`
+	Deleted     bool   `json:"deleted"`
 }
 
 func toResponse(u user.User) userResponse {
@@ -69,6 +70,7 @@ func toResponse(u user.User) userResponse {
 		Email:       u.Email().String(),
 		DisplayName: u.DisplayName(),
 		AvatarURL:   u.AvatarURL(),
+		Deleted:     u.IsDeleted(),
 	}
 }
 
@@ -130,6 +132,9 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, user.ErrNotFound):
 			log.Info("update_profile: not found", logger.KeyUserID, userID)
 			writeError(w, http.StatusNotFound, "user not found")
+		case errors.Is(err, user.ErrDeleted):
+			log.Info("update_profile: user is deleted", logger.KeyUserID, userID)
+			writeError(w, http.StatusConflict, "user is deleted")
 		case errors.Is(err, user.ErrDisplayNameEmpty):
 			log.Info("update_profile: display name empty", logger.KeyUserID, userID)
 			writeError(w, http.StatusBadRequest, err.Error())
