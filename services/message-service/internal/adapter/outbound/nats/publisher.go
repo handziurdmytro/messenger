@@ -51,6 +51,15 @@ func (p *MessagePublisher) PublishDeleted(ctx context.Context, event message.Del
 	return p.publish(ctx, message.SubjectMessageDeleted, event.MessageID+":deleted", event)
 }
 
+func (p *MessagePublisher) PublishRead(ctx context.Context, event message.ReadEvent) error {
+	if err := event.Validate(); err != nil {
+		return err
+	}
+
+	id := fmt.Sprintf("%s:%s:read:%d", event.ChatID, event.UserID, event.ReadAt.UnixNano())
+	return p.publish(ctx, message.SubjectMessageRead, id, event)
+}
+
 func (p *MessagePublisher) publish(ctx context.Context, subject, id string, event any) error {
 	data, err := json.Marshal(event)
 	if err != nil {
