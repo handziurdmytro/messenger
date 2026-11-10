@@ -102,7 +102,7 @@ func TestValidate(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			NewHandler(nil, nil, nil, svc).Validate(recorder, req)
+			NewHandler(Services{Token: svc}).Validate(recorder, req)
 
 			resp := recorder.Result()
 			defer resp.Body.Close()
@@ -198,7 +198,7 @@ func TestHandler_Register(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			NewHandler(svc, nil, nil, nil).Register(recorder, req)
+			NewHandler(Services{Register: svc}).Register(recorder, req)
 
 			resp := recorder.Result()
 			defer resp.Body.Close()
@@ -284,7 +284,7 @@ func TestHandler_Login(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			NewHandler(nil, svc, nil, nil).Login(recorder, req)
+			NewHandler(Services{Login: svc}).Login(recorder, req)
 
 			resp := recorder.Result()
 			defer resp.Body.Close()
@@ -359,7 +359,7 @@ func TestHandler_Refresh(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			NewHandler(nil, nil, svc, nil).Refresh(recorder, req)
+			NewHandler(Services{Refresh: svc}).Refresh(recorder, req)
 
 			resp := recorder.Result()
 			defer resp.Body.Close()
@@ -415,7 +415,7 @@ func TestHandler_JWKS(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodGet, "/.well-known/jwks.pem", nil)
 			recorder := httptest.NewRecorder()
-			NewHandler(nil, nil, nil, svc).JWKS(recorder, req)
+			NewHandler(Services{Token: svc}).JWKS(recorder, req)
 
 			resp := recorder.Result()
 			defer resp.Body.Close()

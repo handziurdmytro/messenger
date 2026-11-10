@@ -19,13 +19,10 @@ type Server struct {
 
 func NewServer(
 	port string,
-	register RegisterService,
-	login LoginService,
-	refresh RefreshService,
-	tokenSvc TokenService,
+	services Services,
 	baseLogger *slog.Logger,
 ) *Server {
-	h := NewHandler(register, login, refresh, tokenSvc)
+	h := NewHandler(services)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /validate", h.Validate)

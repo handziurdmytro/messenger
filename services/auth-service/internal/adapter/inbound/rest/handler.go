@@ -32,6 +32,13 @@ type RefreshService interface {
 	Execute(context.Context, auth.RefreshToken) (auth.TokenPair, error)
 }
 
+type Services struct {
+	Register RegisterService
+	Login    LoginService
+	Refresh  RefreshService
+	Token    TokenService
+}
+
 type Handler struct {
 	register RegisterService
 	login    LoginService
@@ -39,17 +46,12 @@ type Handler struct {
 	tokenSvc TokenService
 }
 
-func NewHandler(
-	register RegisterService,
-	login LoginService,
-	refresh RefreshService,
-	tokenSvc TokenService,
-) *Handler {
+func NewHandler(services Services) *Handler {
 	return &Handler{
-		register: register,
-		login:    login,
-		refresh:  refresh,
-		tokenSvc: tokenSvc,
+		register: services.Register,
+		login:    services.Login,
+		refresh:  services.Refresh,
+		tokenSvc: services.Token,
 	}
 }
 

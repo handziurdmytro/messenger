@@ -149,7 +149,7 @@ func TestServerIntegration_Routing(t *testing.T) {
 			}
 
 			log := slog.New(slog.NewTextHandler(io.Discard, nil))
-			app := NewServer("0", register, login, refresh, token, log)
+			app := NewServer("0", Services{Register: register, Login: login, Refresh: refresh, Token: token}, log)
 
 			server := httptest.NewServer(app.http.Handler)
 			t.Cleanup(server.Close)
@@ -184,7 +184,7 @@ func TestServerIntegration_Routing(t *testing.T) {
 
 func TestServerIntegration_Swagger(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	app := NewServer("0", nil, nil, nil, nil, log)
+	app := NewServer("0", Services{}, log)
 
 	server := httptest.NewServer(app.http.Handler)
 	t.Cleanup(server.Close)

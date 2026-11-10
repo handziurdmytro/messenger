@@ -22,7 +22,7 @@ func testServerLogger() *slog.Logger {
 }
 
 func TestNewServer(t *testing.T) {
-	server := NewServer("80", nil, nil, nil, nil, testServerLogger())
+	server := NewServer("80", Services{}, testServerLogger())
 
 	require.NotNil(t, server)
 	require.NotNil(t, server.http)
@@ -123,7 +123,7 @@ func TestServer_Routes(t *testing.T) {
 				tt.setupToken(token)
 			}
 
-			server := NewServer("0", register, login, refresh, token, testServerLogger())
+			server := NewServer("0", Services{Register: register, Login: login, Refresh: refresh, Token: token}, testServerLogger())
 			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			if tt.body != "" {
 				req.Header.Set("Content-Type", "application/json")
@@ -156,7 +156,7 @@ func TestServer_MethodNotAllowed(t *testing.T) {
 		{"jwks", http.MethodPost, "/.well-known/jwks.pem", http.MethodGet + ", " + http.MethodHead},
 	}
 
-	server := NewServer("0", nil, nil, nil, nil, testServerLogger())
+	server := NewServer("0", Services{}, testServerLogger())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, nil)
@@ -170,7 +170,7 @@ func TestServer_MethodNotAllowed(t *testing.T) {
 }
 
 func TestServer_NotFound(t *testing.T) {
-	server := NewServer("0", nil, nil, nil, nil, testServerLogger())
+	server := NewServer("0", Services{}, testServerLogger())
 	req := httptest.NewRequest(http.MethodGet, "/not-found", nil)
 	recorder := httptest.NewRecorder()
 
@@ -180,7 +180,7 @@ func TestServer_NotFound(t *testing.T) {
 }
 
 func TestServer_SwaggerRoute(t *testing.T) {
-	server := NewServer("0", nil, nil, nil, nil, testServerLogger())
+	server := NewServer("0", Services{}, testServerLogger())
 	req := httptest.NewRequest(http.MethodGet, "/swagger/index.html", nil)
 	recorder := httptest.NewRecorder()
 
