@@ -6,7 +6,17 @@ package db
 
 import (
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type OutboxEvent struct {
+	ID          string             `json:"id"`
+	Subject     string             `json:"subject"`
+	Payload     []byte             `json:"payload"`
+	CreatedAt   time.Time          `json:"created_at"`
+	PublishedAt pgtype.Timestamptz `json:"published_at"`
+}
 
 type RefreshToken struct {
 	ID        string    `json:"id"`
