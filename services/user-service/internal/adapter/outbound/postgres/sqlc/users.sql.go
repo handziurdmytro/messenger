@@ -115,6 +115,45 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, ids []string) ([]User, erro
 	return items, nil
 }
 
+const markUserDeleted = `-- name: MarkUserDeleted :execrows
+WITH removed_contacts AS (
+    DELETE FROM contacts
+    WHERE user_id = $6
+       OR contact_id = $6)
+UPDATE users
+SET email        = $1,
+    display_name = $2,
+    avatar_url   = $3,
+    updated_at   = $4,
+    deleted_at   = $5
+WHERE id = $6
+  AND deleted_at IS NULL
+`
+
+type MarkUserDeletedParams struct {
+	Email       string     `json:"email"`
+	DisplayName string     `json:"display_name"`
+	AvatarUrl   string     `json:"avatar_url"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at"`
+	ID          string     `json:"id"`
+}
+
+func (q *Queries) MarkUserDeleted(ctx context.Context, arg MarkUserDeletedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markUserDeleted,
+		arg.Email,
+		arg.DisplayName,
+		arg.AvatarUrl,
+		arg.UpdatedAt,
+		arg.DeletedAt,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const searchUsers = `-- name: SearchUsers :many
 SELECT id,
        email,
@@ -124,8 +163,9 @@ SELECT id,
        updated_at,
        deleted_at
 FROM users
-WHERE display_name ILIKE '%' || $1::text || '%'
-   OR email ILIKE '%' || $1::text || '%'
+WHERE deleted_at IS NULL
+  AND (display_name ILIKE '%' || $1::text || '%'
+    OR email ILIKE '%' || $1::text || '%')
 LIMIT $2
 `
 

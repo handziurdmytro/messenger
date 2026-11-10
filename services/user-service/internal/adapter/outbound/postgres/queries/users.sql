@@ -50,7 +50,21 @@ SELECT id,
        updated_at,
        deleted_at
 FROM users
-WHERE display_name ILIKE '%' || sqlc.arg(query)::text || '%'
-   OR email ILIKE '%' || sqlc.arg(query)::text || '%'
+WHERE deleted_at IS NULL
+  AND (display_name ILIKE '%' || sqlc.arg(query)::text || '%'
+    OR email ILIKE '%' || sqlc.arg(query)::text || '%')
 LIMIT sqlc.arg(limit_count);
 
+-- name: MarkUserDeleted :execrows
+WITH removed_contacts AS (
+    DELETE FROM contacts
+    WHERE user_id = sqlc.arg(id)
+       OR contact_id = sqlc.arg(id))
+UPDATE users
+SET email        = sqlc.arg(email),
+    display_name = sqlc.arg(display_name),
+    avatar_url   = sqlc.arg(avatar_url),
+    updated_at   = sqlc.arg(updated_at),
+    deleted_at   = sqlc.arg(deleted_at)
+WHERE id = sqlc.arg(id)
+  AND deleted_at IS NULL;

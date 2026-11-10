@@ -44,6 +44,7 @@ SELECT u.id,
 FROM users u
          INNER JOIN contacts c ON u.id = c.contact_id
 WHERE c.user_id = $1
+  AND u.deleted_at IS NULL
 ORDER BY u.display_name ASC
 `
 

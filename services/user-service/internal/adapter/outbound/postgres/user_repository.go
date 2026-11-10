@@ -124,6 +124,27 @@ func (r *UserRepository) Search(ctx context.Context, query string, limit int) ([
 	return users, nil
 }
 
+func (r *UserRepository) MarkDeleted(ctx context.Context, u user.User) error {
+	deletedAt := u.DeletedAt()
+	rowsAffected, err := r.q.MarkUserDeleted(ctx, db.MarkUserDeletedParams{
+		ID:          u.ID().String(),
+		Email:       u.Email().String(),
+		DisplayName: u.DisplayName(),
+		AvatarUrl:   u.AvatarURL(),
+		UpdatedAt:   u.UpdatedAt(),
+		DeletedAt:   &deletedAt,
+	})
+	if err != nil {
+		return errkit.Wrap(outbound.ErrPersistence, "mark user deleted", err)
+	}
+
+	if rowsAffected == 0 {
+		return user.ErrNotFound
+	}
+
+	return nil
+}
+
 func toDomainUser(row db.User) (user.User, error) {
 	if row.DeletedAt != nil {
 		return user.RestoreDeleted(user.ID(row.ID), row.CreatedAt, row.UpdatedAt, *row.DeletedAt)

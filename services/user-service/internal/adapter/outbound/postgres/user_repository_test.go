@@ -245,3 +245,39 @@ func TestUserRepository_Search(t *testing.T) {
 		require.Empty(t, found)
 	})
 }
+
+func TestUserRepository_MarkDeleted(t *testing.T) {
+	ctx := context.Background()
+	users, contacts := newTestRepositories(t)
+
+	owner := saveTestUser(t, ctx, users, "owner", "owner@example.com")
+	saveTestUser(t, ctx, users, "friend", "friend@example.com")
+	require.NoError(t, contacts.Add(ctx, newTestContact(t, "owner", "friend")))
+
+	deletedAt := testCreatedAt.Add(time.Hour)
+	require.NoError(t, owner.Delete(deletedAt))
+	require.NoError(t, users.MarkDeleted(ctx, owner))
+
+	found, err := users.FindByID(ctx, "owner")
+	require.NoError(t, err)
+	require.True(t, found.IsDeleted())
+	require.Equal(t, user.DeletedDisplayName, found.DisplayName())
+	require.Empty(t, found.Email().String())
+	require.WithinDuration(t, deletedAt, found.DeletedAt(), time.Microsecond)
+
+	friendContacts, err := contacts.GetByUserID(ctx, "friend")
+	require.NoError(t, err)
+	require.Empty(t, friendContacts)
+
+	found, err = users.FindByID(ctx, "friend")
+	require.NoError(t, err)
+	require.False(t, found.IsDeleted())
+
+	searched, err := users.Search(ctx, "owner", 10)
+	require.NoError(t, err)
+	require.Empty(t, searched)
+
+	require.ErrorIs(t, users.MarkDeleted(ctx, owner), user.ErrNotFound)
+
+	saveTestUser(t, ctx, users, "owner-again", "owner@example.com")
+}
