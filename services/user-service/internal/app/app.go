@@ -68,11 +68,13 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 
 	server := rest.NewServer(
 		cfg.Server.Port,
-		usecase.NewGetProfileUseCase(users),
-		usecase.NewUpdateProfileUseCase(users),
-		usecase.NewSearchUsersUseCase(users),
-		usecase.NewAddContactUseCase(users, contacts),
-		usecase.NewGetContactsUseCase(contacts),
+		rest.Services{
+			GetProfile:    usecase.NewGetProfileUseCase(users),
+			UpdateProfile: usecase.NewUpdateProfileUseCase(users),
+			SearchUsers:   usecase.NewSearchUsersUseCase(users),
+			AddContact:    usecase.NewAddContactUseCase(users, contacts),
+			GetContacts:   usecase.NewGetContactsUseCase(contacts),
+		},
 		log,
 	)
 

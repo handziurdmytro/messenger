@@ -16,14 +16,10 @@ type Server struct {
 
 func NewServer(
 	port string,
-	getProfile GetProfileUseCase,
-	updateProfile UpdateProfileUseCase,
-	searchUsers SearchUsersUseCase,
-	addContact AddContactUseCase,
-	getContacts GetContactsUseCase,
+	services Services,
 	baseLogger *slog.Logger,
 ) *Server {
-	h := NewHandler(getProfile, updateProfile, searchUsers, addContact, getContacts)
+	h := NewHandler(services)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /me", h.GetProfile)

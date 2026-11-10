@@ -41,7 +41,7 @@ func TestHandler_GetProfile(t *testing.T) {
 			Return(u, nil).
 			Once()
 
-		h := NewHandler(getProfile, nil, nil, nil, nil)
+		h := NewHandler(Services{GetProfile: getProfile})
 		req := httptest.NewRequest(http.MethodGet, "/me", nil)
 		req.Header.Set("X-User-ID", u.ID().String())
 		rec := httptest.NewRecorder()
@@ -53,7 +53,7 @@ func TestHandler_GetProfile(t *testing.T) {
 
 	t.Run("missing user id", func(t *testing.T) {
 		getProfile := NewMockGetProfileUseCase(t)
-		h := NewHandler(getProfile, nil, nil, nil, nil)
+		h := NewHandler(Services{GetProfile: getProfile})
 		req := httptest.NewRequest(http.MethodGet, "/me", nil)
 		rec := httptest.NewRecorder()
 
@@ -69,7 +69,7 @@ func TestHandler_GetProfile(t *testing.T) {
 			Return(user.User{}, user.ErrNotFound).
 			Once()
 
-		h := NewHandler(getProfile, nil, nil, nil, nil)
+		h := NewHandler(Services{GetProfile: getProfile})
 		req := httptest.NewRequest(http.MethodGet, "/me", nil)
 		req.Header.Set("X-User-ID", "missing")
 		rec := httptest.NewRecorder()
@@ -86,7 +86,7 @@ func TestHandler_GetProfile(t *testing.T) {
 			Return(user.User{}, errors.New("database unavailable")).
 			Once()
 
-		h := NewHandler(getProfile, nil, nil, nil, nil)
+		h := NewHandler(Services{GetProfile: getProfile})
 		req := httptest.NewRequest(http.MethodGet, "/me", nil)
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -113,7 +113,7 @@ func TestHandler_UpdateProfile(t *testing.T) {
 			Return(u, nil).
 			Once()
 
-		h := NewHandler(nil, updateProfile, nil, nil, nil)
+		h := NewHandler(Services{UpdateProfile: updateProfile})
 		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"display_name":"Alice Cooper","avatar_url":"https://example.com/avatar.png","deleted":false}`))
 		req.Header.Set("X-User-ID", u.ID().String())
 		rec := httptest.NewRecorder()
@@ -135,7 +135,7 @@ func TestHandler_UpdateProfile(t *testing.T) {
 			Return(u, nil).
 			Once()
 
-		h := NewHandler(nil, updateProfile, nil, nil, nil)
+		h := NewHandler(Services{UpdateProfile: updateProfile})
 		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"display_name":"Alice Cooper"}`))
 		req.Header.Set("X-User-ID", u.ID().String())
 		rec := httptest.NewRecorder()
@@ -156,7 +156,7 @@ func TestHandler_UpdateProfile(t *testing.T) {
 			Return(u, nil).
 			Once()
 
-		h := NewHandler(nil, updateProfile, nil, nil, nil)
+		h := NewHandler(Services{UpdateProfile: updateProfile})
 		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"avatar_url":"","deleted":false}`))
 		req.Header.Set("X-User-ID", u.ID().String())
 		rec := httptest.NewRecorder()
@@ -168,7 +168,7 @@ func TestHandler_UpdateProfile(t *testing.T) {
 
 	t.Run("missing user id", func(t *testing.T) {
 		updateProfile := NewMockUpdateProfileUseCase(t)
-		h := NewHandler(nil, updateProfile, nil, nil, nil)
+		h := NewHandler(Services{UpdateProfile: updateProfile})
 		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"display_name":"Alice"}`))
 		rec := httptest.NewRecorder()
 
@@ -179,7 +179,7 @@ func TestHandler_UpdateProfile(t *testing.T) {
 
 	t.Run("invalid JSON", func(t *testing.T) {
 		updateProfile := NewMockUpdateProfileUseCase(t)
-		h := NewHandler(nil, updateProfile, nil, nil, nil)
+		h := NewHandler(Services{UpdateProfile: updateProfile})
 		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"display_name":`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -197,7 +197,7 @@ func TestHandler_UpdateProfile(t *testing.T) {
 			Return(user.User{}, user.ErrDisplayNameEmpty).
 			Once()
 
-		h := NewHandler(nil, updateProfile, nil, nil, nil)
+		h := NewHandler(Services{UpdateProfile: updateProfile})
 		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"display_name":"  "}`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -214,7 +214,7 @@ func TestHandler_UpdateProfile(t *testing.T) {
 			Return(user.User{}, user.ErrNotFound).
 			Once()
 
-		h := NewHandler(nil, updateProfile, nil, nil, nil)
+		h := NewHandler(Services{UpdateProfile: updateProfile})
 		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"display_name":"Alice"}`))
 		req.Header.Set("X-User-ID", "missing")
 		rec := httptest.NewRecorder()
@@ -231,7 +231,7 @@ func TestHandler_UpdateProfile(t *testing.T) {
 			Return(user.User{}, errors.New("database unavailable")).
 			Once()
 
-		h := NewHandler(nil, updateProfile, nil, nil, nil)
+		h := NewHandler(Services{UpdateProfile: updateProfile})
 		req := httptest.NewRequest(http.MethodPatch, "/me", strings.NewReader(`{"display_name":"Alice"}`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -252,7 +252,7 @@ func TestHandler_SearchUsers(t *testing.T) {
 			Return([]user.User{alice, bob}, nil).
 			Once()
 
-		h := NewHandler(nil, nil, searchUsers, nil, nil)
+		h := NewHandler(Services{SearchUsers: searchUsers})
 		req := httptest.NewRequest(http.MethodGet, "/search?q=alice", nil)
 		rec := httptest.NewRecorder()
 
@@ -271,7 +271,7 @@ func TestHandler_SearchUsers(t *testing.T) {
 			Return(nil, nil).
 			Once()
 
-		h := NewHandler(nil, nil, searchUsers, nil, nil)
+		h := NewHandler(Services{SearchUsers: searchUsers})
 		req := httptest.NewRequest(http.MethodGet, "/search", nil)
 		rec := httptest.NewRecorder()
 
@@ -287,7 +287,7 @@ func TestHandler_SearchUsers(t *testing.T) {
 			Return(nil, errors.New("database unavailable")).
 			Once()
 
-		h := NewHandler(nil, nil, searchUsers, nil, nil)
+		h := NewHandler(Services{SearchUsers: searchUsers})
 		req := httptest.NewRequest(http.MethodGet, "/search?q=alice", nil)
 		rec := httptest.NewRecorder()
 
@@ -305,7 +305,7 @@ func TestHandler_AddContact(t *testing.T) {
 			Return(nil).
 			Once()
 
-		h := NewHandler(nil, nil, nil, addContact, nil)
+		h := NewHandler(Services{AddContact: addContact})
 		req := httptest.NewRequest(http.MethodPost, "/me/contacts", strings.NewReader(`{"contact_id":"user-2"}`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -317,7 +317,7 @@ func TestHandler_AddContact(t *testing.T) {
 
 	t.Run("missing user id", func(t *testing.T) {
 		addContact := NewMockAddContactUseCase(t)
-		h := NewHandler(nil, nil, nil, addContact, nil)
+		h := NewHandler(Services{AddContact: addContact})
 		req := httptest.NewRequest(http.MethodPost, "/me/contacts", strings.NewReader(`{"contact_id":"user-2"}`))
 		rec := httptest.NewRecorder()
 
@@ -328,7 +328,7 @@ func TestHandler_AddContact(t *testing.T) {
 
 	t.Run("invalid JSON", func(t *testing.T) {
 		addContact := NewMockAddContactUseCase(t)
-		h := NewHandler(nil, nil, nil, addContact, nil)
+		h := NewHandler(Services{AddContact: addContact})
 		req := httptest.NewRequest(http.MethodPost, "/me/contacts", strings.NewReader(`{"contact_id":`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -340,7 +340,7 @@ func TestHandler_AddContact(t *testing.T) {
 
 	t.Run("missing contact id", func(t *testing.T) {
 		addContact := NewMockAddContactUseCase(t)
-		h := NewHandler(nil, nil, nil, addContact, nil)
+		h := NewHandler(Services{AddContact: addContact})
 		req := httptest.NewRequest(http.MethodPost, "/me/contacts", strings.NewReader(`{}`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -357,7 +357,7 @@ func TestHandler_AddContact(t *testing.T) {
 			Return(contact.ErrCannotAddSelf).
 			Once()
 
-		h := NewHandler(nil, nil, nil, addContact, nil)
+		h := NewHandler(Services{AddContact: addContact})
 		req := httptest.NewRequest(http.MethodPost, "/me/contacts", strings.NewReader(`{"contact_id":"user-1"}`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -374,7 +374,7 @@ func TestHandler_AddContact(t *testing.T) {
 			Return(contact.ErrAlreadyExists).
 			Once()
 
-		h := NewHandler(nil, nil, nil, addContact, nil)
+		h := NewHandler(Services{AddContact: addContact})
 		req := httptest.NewRequest(http.MethodPost, "/me/contacts", strings.NewReader(`{"contact_id":"user-2"}`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -391,7 +391,7 @@ func TestHandler_AddContact(t *testing.T) {
 			Return(user.ErrNotFound).
 			Once()
 
-		h := NewHandler(nil, nil, nil, addContact, nil)
+		h := NewHandler(Services{AddContact: addContact})
 		req := httptest.NewRequest(http.MethodPost, "/me/contacts", strings.NewReader(`{"contact_id":"missing"}`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -408,7 +408,7 @@ func TestHandler_AddContact(t *testing.T) {
 			Return(errors.New("database unavailable")).
 			Once()
 
-		h := NewHandler(nil, nil, nil, addContact, nil)
+		h := NewHandler(Services{AddContact: addContact})
 		req := httptest.NewRequest(http.MethodPost, "/me/contacts", strings.NewReader(`{"contact_id":"user-2"}`))
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -429,7 +429,7 @@ func TestHandler_GetContacts(t *testing.T) {
 			Return([]user.User{alice, bob}, nil).
 			Once()
 
-		h := NewHandler(nil, nil, nil, nil, getContacts)
+		h := NewHandler(Services{GetContacts: getContacts})
 		req := httptest.NewRequest(http.MethodGet, "/me/contacts", nil)
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -449,7 +449,7 @@ func TestHandler_GetContacts(t *testing.T) {
 			Return(nil, nil).
 			Once()
 
-		h := NewHandler(nil, nil, nil, nil, getContacts)
+		h := NewHandler(Services{GetContacts: getContacts})
 		req := httptest.NewRequest(http.MethodGet, "/me/contacts", nil)
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()
@@ -461,7 +461,7 @@ func TestHandler_GetContacts(t *testing.T) {
 
 	t.Run("missing user id", func(t *testing.T) {
 		getContacts := NewMockGetContactsUseCase(t)
-		h := NewHandler(nil, nil, nil, nil, getContacts)
+		h := NewHandler(Services{GetContacts: getContacts})
 		req := httptest.NewRequest(http.MethodGet, "/me/contacts", nil)
 		rec := httptest.NewRecorder()
 
@@ -477,7 +477,7 @@ func TestHandler_GetContacts(t *testing.T) {
 			Return(nil, errors.New("database unavailable")).
 			Once()
 
-		h := NewHandler(nil, nil, nil, nil, getContacts)
+		h := NewHandler(Services{GetContacts: getContacts})
 		req := httptest.NewRequest(http.MethodGet, "/me/contacts", nil)
 		req.Header.Set("X-User-ID", "user-1")
 		rec := httptest.NewRecorder()

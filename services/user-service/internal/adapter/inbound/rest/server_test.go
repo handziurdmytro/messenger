@@ -97,7 +97,7 @@ func TestServer_Routes(t *testing.T) {
 			tt.setupMocks(getProfile, updateProfile, searchUsers, addContact, getContacts)
 
 			log := slog.New(slog.NewTextHandler(io.Discard, nil))
-			server := NewServer("8080", getProfile, updateProfile, searchUsers, addContact, getContacts, log)
+			server := NewServer("8080", Services{GetProfile: getProfile, UpdateProfile: updateProfile, SearchUsers: searchUsers, AddContact: addContact, GetContacts: getContacts}, log)
 
 			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			req.Header.Set("X-User-ID", "user-1")
@@ -112,7 +112,7 @@ func TestServer_Routes(t *testing.T) {
 
 func TestServer_UnknownRoute(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	server := NewServer("8080", nil, nil, nil, nil, nil, log)
+	server := NewServer("8080", Services{}, log)
 
 	req := httptest.NewRequest(http.MethodGet, "/unknown", nil)
 	rec := httptest.NewRecorder()
@@ -124,7 +124,7 @@ func TestServer_UnknownRoute(t *testing.T) {
 
 func TestServer_MethodNotAllowed(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	server := NewServer("8080", nil, nil, nil, nil, nil, log)
+	server := NewServer("8080", Services{}, log)
 
 	req := httptest.NewRequest(http.MethodDelete, "/me", nil)
 	rec := httptest.NewRecorder()

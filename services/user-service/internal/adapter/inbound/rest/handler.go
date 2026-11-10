@@ -40,19 +40,21 @@ type Handler struct {
 	getContacts   GetContactsUseCase
 }
 
-func NewHandler(
-	getProfile GetProfileUseCase,
-	updateProfile UpdateProfileUseCase,
-	searchUsers SearchUsersUseCase,
-	addContact AddContactUseCase,
-	getContacts GetContactsUseCase,
-) *Handler {
+type Services struct {
+	GetProfile    GetProfileUseCase
+	UpdateProfile UpdateProfileUseCase
+	SearchUsers   SearchUsersUseCase
+	AddContact    AddContactUseCase
+	GetContacts   GetContactsUseCase
+}
+
+func NewHandler(services Services) *Handler {
 	return &Handler{
-		getProfile:    getProfile,
-		updateProfile: updateProfile,
-		searchUsers:   searchUsers,
-		addContact:    addContact,
-		getContacts:   getContacts,
+		getProfile:    services.GetProfile,
+		updateProfile: services.UpdateProfile,
+		searchUsers:   services.SearchUsers,
+		addContact:    services.AddContact,
+		getContacts:   services.GetContacts,
 	}
 }
 
