@@ -51,6 +51,9 @@ type Services struct {
 	DownloadFile  DownloadFileUseCase
 	EditMessage   EditMessageUseCase
 	DeleteMessage DeleteMessageUseCase
+	MarkRead      MarkReadUseCase
+	ReadMarkers   ReadMarkersUseCase
+	UnreadCount   UnreadCountUseCase
 }
 
 type Handler struct {
@@ -60,6 +63,9 @@ type Handler struct {
 	download DownloadFileUseCase
 	edit     EditMessageUseCase
 	remove   DeleteMessageUseCase
+	markRead MarkReadUseCase
+	markers  ReadMarkersUseCase
+	unread   UnreadCountUseCase
 }
 
 func NewHandler(services Services) *Handler {
@@ -70,6 +76,9 @@ func NewHandler(services Services) *Handler {
 		download: services.DownloadFile,
 		edit:     services.EditMessage,
 		remove:   services.DeleteMessage,
+		markRead: services.MarkRead,
+		markers:  services.ReadMarkers,
+		unread:   services.UnreadCount,
 	}
 }
 

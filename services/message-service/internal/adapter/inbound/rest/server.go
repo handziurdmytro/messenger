@@ -28,6 +28,9 @@ func NewServer(
 	mux.HandleFunc("GET /chats/{chat_id}/messages/{message_id}", authorizeChat(chatServiceURL, handler.GetMessage))
 	mux.HandleFunc("PATCH /chats/{chat_id}/messages/{message_id}", authorizeChat(chatServiceURL, handler.EditMessage))
 	mux.HandleFunc("DELETE /chats/{chat_id}/messages/{message_id}", authorizeChat(chatServiceURL, handler.DeleteMessage))
+	mux.HandleFunc("POST /chats/{chat_id}/read", authorizeChat(chatServiceURL, handler.MarkRead))
+	mux.HandleFunc("GET /chats/{chat_id}/read", authorizeChat(chatServiceURL, handler.ListReadMarkers))
+	mux.HandleFunc("GET /chats/{chat_id}/unread", authorizeChat(chatServiceURL, handler.UnreadCount))
 	mux.HandleFunc("POST /files", handler.UploadFile)
 	mux.HandleFunc("GET /files/{id}", handler.DownloadFile)
 
