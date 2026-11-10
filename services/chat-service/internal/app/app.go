@@ -27,6 +27,7 @@ type App struct {
 	httpServer *rest.Server
 	consumer   *natsinbound.MessageConsumer
 	blocks     *natsinbound.UserBlocksConsumer
+	updates    *natsinbound.MessageUpdatesConsumer
 	registry   *ws.Registry
 	natsClient *natskit.Client
 	pgPool     *pgxpool.Pool
@@ -71,6 +72,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		natsClient.Close()
 		pool.Close()
 		return nil, errkit.Wrap(ErrStartup, "get jetstream consumer", err)
+	}
+
+	updatesConsumer, err := natsClient.JS.Consumer(ctx, cfg.NATS.Stream, cfg.NATS.UpdatesConsumer)
+	if err != nil {
+		natsClient.Close()
+		pool.Close()
+		return nil, errkit.Wrap(ErrStartup, "get message updates consumer", err)
 	}
 
 	blocksConsumer, err := natsClient.JS.Consumer(ctx, cfg.NATS.BlocksStream, cfg.NATS.BlocksConsumer)
@@ -118,6 +126,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	return &App{
 		httpServer: httpServer,
 		consumer:   messageConsumer,
+		updates:    natsinbound.NewMessageUpdatesConsumer(updatesConsumer, natsClient.JS, delivery, logger),
 		blocks:     natsinbound.NewUserBlocksConsumer(blocksConsumer, natsClient.JS, usecase.NewApplyBlock(blockRepo), logger),
 		registry:   registry,
 		natsClient: natsClient,
@@ -141,6 +150,13 @@ func (a *App) Start(ctx context.Context) error {
 	g.Go(func() error {
 		if err := a.consumer.Run(gCtx); err != nil {
 			return fmt.Errorf("nats consumer: %w", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		if err := a.updates.Run(gCtx); err != nil {
+			return fmt.Errorf("message updates consumer: %w", err)
 		}
 		return nil
 	})

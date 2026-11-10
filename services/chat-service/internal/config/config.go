@@ -42,6 +42,8 @@ type NATSConfig struct {
 	Stream   string `env:"STREAM" envDefault:"MESSAGES"`
 	Consumer string `env:"CONSUMER" envDefault:"chat-message-created"`
 
+	UpdatesConsumer string `env:"UPDATES_CONSUMER" envDefault:"chat-message-updates"`
+
 	BlocksStream   string `env:"BLOCKS_STREAM" envDefault:"USERS"`
 	BlocksConsumer string `env:"BLOCKS_CONSUMER" envDefault:"chat-user-blocks"`
 }

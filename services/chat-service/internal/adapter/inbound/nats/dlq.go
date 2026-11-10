@@ -15,6 +15,7 @@ import (
 const (
 	subjectMessageCreatedDLQ = "chat.messages.created.dlq"
 	subjectUserBlocksDLQ     = "chat.user.blocks.dlq"
+	subjectMessageUpdatesDLQ = "chat.messages.updates.dlq"
 )
 
 var ErrDLQPublishFailed = errors.New("dead letter publish failed")
