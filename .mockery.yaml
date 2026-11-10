@@ -30,3 +30,53 @@ packages:
       dir: '{{.InterfaceDir}}'
       filename: mocks_test.go
       pkgname: rest
+
+  github.com/handziurdmytro/messenger/user-service/internal/adapter/inbound/nats:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}'
+      filename: mocks_test.go
+      pkgname: nats
+
+  github.com/handziurdmytro/messenger/chat-service/internal/usecase:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}'
+      filename: mocks_test.go
+      pkgname: usecase
+
+  github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/rest:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}'
+      filename: mocks_test.go
+      pkgname: rest
+
+  github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/nats:
+    config:
+      all: true
+      exclude-interface-regex: '^validatable$'
+      dir: '{{.InterfaceDir}}'
+      filename: mocks_test.go
+      pkgname: nats
+
+  github.com/handziurdmytro/messenger/message-service/internal/usecase:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}'
+      filename: mocks_test.go
+      pkgname: usecase
+
+  github.com/handziurdmytro/messenger/message-service/internal/adapter/inbound/rest:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}'
+      filename: mocks_test.go
+      pkgname: rest
+
+  github.com/handziurdmytro/messenger/pkg/natskit:
+    config:
+      all: true
+      dir: '{{.InterfaceDir}}'
+      filename: mocks_test.go
+      pkgname: natskit

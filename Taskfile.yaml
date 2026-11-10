@@ -84,20 +84,7 @@ tasks:
       - go clean -cache -testcache
 
   mocks:
-    desc: "Generate all mocks for the project"
-    cmds:
-      - task: mocks-auth
-      - task: mocks-user
-
-  mocks-auth:
-    desc: "Generate mocks strictly for auth-service"
-    dir: services/auth-service
-    cmds:
-      - mockery
-
-  mocks-user:
-    desc: "Generate mocks strictly for user-service"
-    dir: services/user-service
+    desc: "Generate all mocks from .mockery.yaml"
     cmds:
       - mockery
 
