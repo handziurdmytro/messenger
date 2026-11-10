@@ -75,3 +75,22 @@ func (q *Queries) GetContactsByUserID(ctx context.Context, userID string) ([]Use
 	}
 	return items, nil
 }
+
+const removeContact = `-- name: RemoveContact :execrows
+DELETE FROM contacts
+WHERE (user_id = $1 AND contact_id = $2)
+   OR (user_id = $2 AND contact_id = $1)
+`
+
+type RemoveContactParams struct {
+	UserID    string `json:"user_id"`
+	ContactID string `json:"contact_id"`
+}
+
+func (q *Queries) RemoveContact(ctx context.Context, arg RemoveContactParams) (int64, error) {
+	result, err := q.db.Exec(ctx, removeContact, arg.UserID, arg.ContactID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

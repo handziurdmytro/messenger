@@ -54,3 +54,19 @@ func (r *ContactRepository) GetByUserID(ctx context.Context, userID user.ID) ([]
 
 	return users, nil
 }
+
+func (r *ContactRepository) Remove(ctx context.Context, userID, contactID user.ID) error {
+	rows, err := r.q.RemoveContact(ctx, db.RemoveContactParams{
+		UserID:    userID.String(),
+		ContactID: contactID.String(),
+	})
+	if err != nil {
+		return errkit.Wrap(outbound.ErrPersistence, "remove contact", err)
+	}
+
+	if rows == 0 {
+		return contact.ErrNotFound
+	}
+
+	return nil
+}

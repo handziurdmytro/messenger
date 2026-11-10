@@ -23,3 +23,8 @@ FROM users u
 WHERE c.user_id = sqlc.arg(user_id)
   AND u.deleted_at IS NULL
 ORDER BY u.display_name ASC;
+
+-- name: RemoveContact :execrows
+DELETE FROM contacts
+WHERE (user_id = sqlc.arg(user_id) AND contact_id = sqlc.arg(contact_id))
+   OR (user_id = sqlc.arg(contact_id) AND contact_id = sqlc.arg(user_id));

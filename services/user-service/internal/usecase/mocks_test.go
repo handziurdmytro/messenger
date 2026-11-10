@@ -173,6 +173,69 @@ func (_c *MockContactRepository_GetByUserID_Call) RunAndReturn(run func(ctx cont
 	return _c
 }
 
+// Remove provides a mock function for the type MockContactRepository
+func (_mock *MockContactRepository) Remove(ctx context.Context, userID user.ID, contactID user.ID) error {
+	ret := _mock.Called(ctx, userID, contactID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Remove")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, user.ID, user.ID) error); ok {
+		r0 = returnFunc(ctx, userID, contactID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockContactRepository_Remove_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Remove'
+type MockContactRepository_Remove_Call struct {
+	*mock.Call
+}
+
+// Remove is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID user.ID
+//   - contactID user.ID
+func (_e *MockContactRepository_Expecter) Remove(ctx any, userID any, contactID any) *MockContactRepository_Remove_Call {
+	return &MockContactRepository_Remove_Call{Call: _e.mock.On("Remove", ctx, userID, contactID)}
+}
+
+func (_c *MockContactRepository_Remove_Call) Run(run func(ctx context.Context, userID user.ID, contactID user.ID)) *MockContactRepository_Remove_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 user.ID
+		if args[1] != nil {
+			arg1 = args[1].(user.ID)
+		}
+		var arg2 user.ID
+		if args[2] != nil {
+			arg2 = args[2].(user.ID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContactRepository_Remove_Call) Return(err error) *MockContactRepository_Remove_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockContactRepository_Remove_Call) RunAndReturn(run func(ctx context.Context, userID user.ID, contactID user.ID) error) *MockContactRepository_Remove_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockUserRepository creates a new instance of MockUserRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockUserRepository(t interface {

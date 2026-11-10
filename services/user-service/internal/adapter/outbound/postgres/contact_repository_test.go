@@ -118,3 +118,22 @@ func TestContactRepository_GetByUserID(t *testing.T) {
 		require.Empty(t, found)
 	})
 }
+
+func TestContactRepository_Remove(t *testing.T) {
+	ctx := context.Background()
+	users, contacts := newTestRepositories(t)
+
+	saveTestUser(t, ctx, users, "owner", "owner@example.com")
+	saveTestUser(t, ctx, users, "friend", "friend@example.com")
+	require.NoError(t, contacts.Add(ctx, newTestContact(t, "owner", "friend")))
+
+	require.NoError(t, contacts.Remove(ctx, "friend", "owner"))
+
+	for _, id := range []user.ID{"owner", "friend"} {
+		got, err := contacts.GetByUserID(ctx, id)
+		require.NoError(t, err)
+		require.Empty(t, got)
+	}
+
+	require.ErrorIs(t, contacts.Remove(ctx, "owner", "friend"), contact.ErrNotFound)
+}
