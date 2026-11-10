@@ -86,9 +86,19 @@ WHERE EXISTS (SELECT 1
               FROM participants mine
               WHERE mine.chat_id = c.id
                 AND mine.user_id = $1)
+  AND ($2::timestamptz IS NULL
+    OR (c.created_at, c.id) < ($2::timestamptz, $3::uuid))
 GROUP BY c.id
 ORDER BY c.created_at DESC, c.id DESC
+LIMIT $4
 `
+
+type ListChatsByUserParams struct {
+	UserID          uuid.UUID          `json:"user_id"`
+	BeforeCreatedAt pgtype.Timestamptz `json:"before_created_at"`
+	BeforeID        pgtype.UUID        `json:"before_id"`
+	LimitCount      int32              `json:"limit_count"`
+}
 
 type ListChatsByUserRow struct {
 	ID             uuid.UUID   `json:"id"`
@@ -97,8 +107,13 @@ type ListChatsByUserRow struct {
 	ParticipantIds []uuid.UUID `json:"participant_ids"`
 }
 
-func (q *Queries) ListChatsByUser(ctx context.Context, userID uuid.UUID) ([]ListChatsByUserRow, error) {
-	rows, err := q.db.Query(ctx, listChatsByUser, userID)
+func (q *Queries) ListChatsByUser(ctx context.Context, arg ListChatsByUserParams) ([]ListChatsByUserRow, error) {
+	rows, err := q.db.Query(ctx, listChatsByUser,
+		arg.UserID,
+		arg.BeforeCreatedAt,
+		arg.BeforeID,
+		arg.LimitCount,
+	)
 	if err != nil {
 		return nil, err
 	}

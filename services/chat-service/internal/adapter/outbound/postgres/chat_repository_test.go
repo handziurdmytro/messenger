@@ -39,14 +39,43 @@ func TestChatRepository_ListByUser(t *testing.T) {
 	require.NoError(t, repo.Save(ctx, own))
 	require.NoError(t, repo.Save(ctx, other))
 	for _, participant := range own.Participants() {
-		chats, err := repo.ListByUser(ctx, participant)
+		chats, err := repo.ListByUser(ctx, participant, usecase.ChatPage{Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, chats, 1)
 		requireSameChat(t, own, chats[0])
 	}
-	chats, err := repo.ListByUser(ctx, chat.UserID(uuid.NewString()))
+	chats, err := repo.ListByUser(ctx, chat.UserID(uuid.NewString()), usecase.ChatPage{Limit: 10})
 	require.NoError(t, err)
 	require.Empty(t, chats)
+}
+
+func TestChatRepository_ListByUserPagination(t *testing.T) {
+	repo, _ := newTestChatRepository(t)
+	ctx := context.Background()
+	owner := chat.UserID(uuid.NewString())
+
+	created := make([]chat.Chat, 0, 3)
+	for range 3 {
+		c, err := chat.NewPrivate(owner, chat.UserID(uuid.NewString()))
+		require.NoError(t, err)
+		require.NoError(t, repo.Save(ctx, c))
+		created = append(created, c)
+	}
+
+	first, err := repo.ListByUser(ctx, owner, usecase.ChatPage{Limit: 2})
+	require.NoError(t, err)
+	require.Len(t, first, 2)
+	requireSameChat(t, created[2], first[0])
+	requireSameChat(t, created[1], first[1])
+
+	last := first[len(first)-1]
+	second, err := repo.ListByUser(ctx, owner, usecase.ChatPage{
+		Limit:  2,
+		Before: &usecase.ChatCursor{CreatedAt: last.CreatedAt(), ID: last.ID()},
+	})
+	require.NoError(t, err)
+	require.Len(t, second, 1)
+	requireSameChat(t, created[0], second[0])
 }
 
 func requireSameChat(t *testing.T, expected, actual chat.Chat) {

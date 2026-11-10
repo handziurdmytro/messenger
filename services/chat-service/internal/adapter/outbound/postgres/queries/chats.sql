@@ -27,5 +27,8 @@ WHERE EXISTS (SELECT 1
               FROM participants mine
               WHERE mine.chat_id = c.id
                 AND mine.user_id = sqlc.arg(user_id))
+  AND (sqlc.narg(before_created_at)::timestamptz IS NULL
+    OR (c.created_at, c.id) < (sqlc.narg(before_created_at)::timestamptz, sqlc.narg(before_id)::uuid))
 GROUP BY c.id
-ORDER BY c.created_at DESC, c.id DESC;
+ORDER BY c.created_at DESC, c.id DESC
+LIMIT sqlc.arg(limit_count);

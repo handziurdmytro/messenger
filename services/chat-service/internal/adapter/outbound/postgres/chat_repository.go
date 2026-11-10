@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
@@ -151,13 +152,30 @@ func findError(operation string, err error) error {
 	return errkit.Wrap(usecase.ErrPersistence, operation, err)
 }
 
-func (r *ChatRepository) ListByUser(ctx context.Context, userID chat.UserID) ([]chat.Chat, error) {
+func (r *ChatRepository) ListByUser(ctx context.Context, userID chat.UserID, page usecase.ChatPage) ([]chat.Chat, error) {
 	parsedID, err := uuid.Parse(string(userID))
 	if err != nil {
 		return nil, errkit.Wrap(chat.ErrInvalidUserID, "postgres: parse user ID", err)
 	}
 
-	rows, err := r.q.ListChatsByUser(ctx, parsedID)
+	if page.Limit <= 0 || page.Limit > math.MaxInt32 {
+		return nil, fmt.Errorf("postgres: invalid limit %d", page.Limit)
+	}
+
+	params := db.ListChatsByUserParams{
+		UserID:     parsedID,
+		LimitCount: int32(page.Limit),
+	}
+	if page.Before != nil {
+		beforeID, err := uuid.Parse(string(page.Before.ID))
+		if err != nil {
+			return nil, errkit.Wrap(chat.ErrInvalidChatID, "postgres: parse cursor ID", err)
+		}
+		params.BeforeCreatedAt = pgtype.Timestamptz{Time: page.Before.CreatedAt, Valid: true}
+		params.BeforeID = pgtype.UUID{Bytes: beforeID, Valid: true}
+	}
+
+	rows, err := r.q.ListChatsByUser(ctx, params)
 	if err != nil {
 		return nil, errkit.Wrap(usecase.ErrPersistence, "postgres: list chats", err)
 	}
