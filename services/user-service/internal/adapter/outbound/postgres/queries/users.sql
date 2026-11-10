@@ -17,7 +17,8 @@ SELECT id,
        display_name,
        avatar_url,
        created_at,
-       updated_at
+       updated_at,
+       deleted_at
 FROM users
 WHERE id = sqlc.arg(id);
 
@@ -27,7 +28,8 @@ SELECT id,
        display_name,
        avatar_url,
        created_at,
-       updated_at
+       updated_at,
+       deleted_at
 FROM users
 WHERE id = ANY (sqlc.arg(ids)::text[]);
 
@@ -45,7 +47,8 @@ SELECT id,
        display_name,
        avatar_url,
        created_at,
-       updated_at
+       updated_at,
+       deleted_at
 FROM users
 WHERE display_name ILIKE '%' || sqlc.arg(query)::text || '%'
    OR email ILIKE '%' || sqlc.arg(query)::text || '%'

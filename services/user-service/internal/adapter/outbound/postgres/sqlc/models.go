@@ -15,10 +15,11 @@ type Contact struct {
 }
 
 type User struct {
-	ID          string    `json:"id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	AvatarUrl   string    `json:"avatar_url"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string     `json:"id"`
+	Email       string     `json:"email"`
+	DisplayName string     `json:"display_name"`
+	AvatarUrl   string     `json:"avatar_url"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at"`
 }

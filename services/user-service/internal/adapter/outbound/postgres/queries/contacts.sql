@@ -16,7 +16,8 @@ SELECT u.id,
        u.display_name,
        u.avatar_url,
        u.created_at,
-       u.updated_at
+       u.updated_at,
+       u.deleted_at
 FROM users u
          INNER JOIN contacts c ON u.id = c.contact_id
 WHERE c.user_id = sqlc.arg(user_id)

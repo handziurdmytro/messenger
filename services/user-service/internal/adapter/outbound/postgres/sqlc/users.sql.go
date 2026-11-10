@@ -54,7 +54,8 @@ SELECT id,
        display_name,
        avatar_url,
        created_at,
-       updated_at
+       updated_at,
+       deleted_at
 FROM users
 WHERE id = $1
 `
@@ -69,6 +70,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.AvatarUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -79,7 +81,8 @@ SELECT id,
        display_name,
        avatar_url,
        created_at,
-       updated_at
+       updated_at,
+       deleted_at
 FROM users
 WHERE id = ANY ($1::text[])
 `
@@ -100,6 +103,7 @@ func (q *Queries) GetUsersByIDs(ctx context.Context, ids []string) ([]User, erro
 			&i.AvatarUrl,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -117,7 +121,8 @@ SELECT id,
        display_name,
        avatar_url,
        created_at,
-       updated_at
+       updated_at,
+       deleted_at
 FROM users
 WHERE display_name ILIKE '%' || $1::text || '%'
    OR email ILIKE '%' || $1::text || '%'
@@ -145,6 +150,7 @@ func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]Use
 			&i.AvatarUrl,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}

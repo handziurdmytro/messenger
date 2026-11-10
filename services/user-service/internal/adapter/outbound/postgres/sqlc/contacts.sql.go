@@ -39,7 +39,8 @@ SELECT u.id,
        u.display_name,
        u.avatar_url,
        u.created_at,
-       u.updated_at
+       u.updated_at,
+       u.deleted_at
 FROM users u
          INNER JOIN contacts c ON u.id = c.contact_id
 WHERE c.user_id = $1
@@ -62,6 +63,7 @@ func (q *Queries) GetContactsByUserID(ctx context.Context, userID string) ([]Use
 			&i.AvatarUrl,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
