@@ -75,10 +75,12 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	server := rest.NewServer(
 		cfg.Server.Port,
 		rest.Services{
-			GetHistory:   usecase.NewGetHistory(repo),
-			GetMessage:   usecase.NewGetMessage(repo),
-			UploadFile:   usecase.NewUploadFileUseCase(files),
-			DownloadFile: usecase.NewDownloadFileUseCase(files),
+			GetHistory:    usecase.NewGetHistory(repo),
+			GetMessage:    usecase.NewGetMessage(repo),
+			UploadFile:    usecase.NewUploadFileUseCase(files),
+			DownloadFile:  usecase.NewDownloadFileUseCase(files),
+			EditMessage:   usecase.NewEditMessage(repo, publisher),
+			DeleteMessage: usecase.NewDeleteMessage(repo, publisher),
 		},
 		log,
 		cfg.ChatServiceURL,

@@ -14,6 +14,7 @@ import (
 
 	"github.com/handziurdmytro/messenger/message-service/internal/domain/message"
 	"github.com/handziurdmytro/messenger/message-service/internal/usecase"
+	contract "github.com/handziurdmytro/messenger/pkg/contracts/message"
 	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
@@ -35,11 +36,21 @@ type DownloadFileUseCase interface {
 	Execute(ctx context.Context, key string) (io.Reader, error)
 }
 
+type EditMessageUseCase interface {
+	Execute(ctx context.Context, in usecase.EditMessageInput) (message.Message, error)
+}
+
+type DeleteMessageUseCase interface {
+	Execute(ctx context.Context, chatID message.ChatID, messageID message.ID, userID string) error
+}
+
 type Services struct {
-	GetHistory   GetHistoryUseCase
-	GetMessage   GetMessageUseCase
-	UploadFile   UploadFileUseCase
-	DownloadFile DownloadFileUseCase
+	GetHistory    GetHistoryUseCase
+	GetMessage    GetMessageUseCase
+	UploadFile    UploadFileUseCase
+	DownloadFile  DownloadFileUseCase
+	EditMessage   EditMessageUseCase
+	DeleteMessage DeleteMessageUseCase
 }
 
 type Handler struct {
@@ -47,6 +58,8 @@ type Handler struct {
 	get      GetMessageUseCase
 	upload   UploadFileUseCase
 	download DownloadFileUseCase
+	edit     EditMessageUseCase
+	remove   DeleteMessageUseCase
 }
 
 func NewHandler(services Services) *Handler {
@@ -55,6 +68,8 @@ func NewHandler(services Services) *Handler {
 		get:      services.GetMessage,
 		upload:   services.UploadFile,
 		download: services.DownloadFile,
+		edit:     services.EditMessage,
+		remove:   services.DeleteMessage,
 	}
 }
 
@@ -200,8 +215,63 @@ func (h *Handler) handleError(w http.ResponseWriter, r *http.Request, err error)
 	case errors.Is(err, usecase.ErrMessageNotFound):
 		writeError(w, http.StatusNotFound, "message not found")
 
+	case errors.Is(err, usecase.ErrForbidden):
+		writeError(w, http.StatusForbidden, "only the author can change the message")
+
+	case errors.Is(err, contract.ErrInvalidPayload):
+		writeError(w, http.StatusBadRequest, "invalid payload")
+
+	case errors.Is(err, message.ErrMessageDeleted):
+		writeError(w, http.StatusConflict, err.Error())
+
+	case errors.Is(err, message.ErrMessageNotEditable),
+		errors.Is(err, message.ErrMessageNotDeletable):
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+
 	default:
 		logger.FromContext(r.Context()).Error("message REST request failed", "error", err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
 	}
+}
+
+type editMessageRequest struct {
+	Payload json.RawMessage `json:"payload"`
+}
+
+func (h *Handler) EditMessage(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+
+	var req editMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	msg, err := h.edit.Execute(r.Context(), usecase.EditMessageInput{
+		ChatID:    message.ChatID(r.PathValue("chat_id")),
+		MessageID: message.ID(r.PathValue("message_id")),
+		UserID:    r.Header.Get("X-User-ID"),
+		Payload:   req.Payload,
+	})
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toMessageResponse(msg))
+}
+
+func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
+	err := h.remove.Execute(
+		r.Context(),
+		message.ChatID(r.PathValue("chat_id")),
+		message.ID(r.PathValue("message_id")),
+		r.Header.Get("X-User-ID"),
+	)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
