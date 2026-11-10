@@ -100,16 +100,16 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, auth.ErrEmailTaken):
 			log.Info("register: email already taken", "email", req.Email)
-			_ = httpjson.Error(w, http.StatusConflict, "email already taken")
+			writeError(w, http.StatusConflict, "email already taken")
 		case errors.Is(err, auth.ErrPasswordTooShort):
 			log.Info("register: password too short", "email", req.Email)
-			_ = httpjson.Error(w, http.StatusBadRequest, err.Error())
+			writeError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, auth.ErrPasswordTooLong):
 			log.Info("register: password too long", "email", req.Email)
-			_ = httpjson.Error(w, http.StatusBadRequest, err.Error())
+			writeError(w, http.StatusBadRequest, err.Error())
 		default:
 			log.Error("register: failed", "email", req.Email, logger.KeyError, err)
-			_ = httpjson.Error(w, http.StatusInternalServerError, "internal error")
+			writeError(w, http.StatusInternalServerError, "internal error")
 		}
 		return
 	}
@@ -153,10 +153,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, auth.ErrUserNotFound),
 			errors.Is(err, auth.ErrPasswordInvalid):
 			log.Info("login: invalid credentials", "email", req.Email)
-			_ = httpjson.Error(w, http.StatusUnauthorized, "invalid credentials")
+			writeError(w, http.StatusUnauthorized, "invalid credentials")
 		default:
 			log.Error("login: failed", "email", req.Email, logger.KeyError, err)
-			_ = httpjson.Error(w, http.StatusInternalServerError, "internal error")
+			writeError(w, http.StatusInternalServerError, "internal error")
 		}
 		return
 	}
@@ -197,10 +197,10 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, auth.ErrRefreshInvalid),
 			errors.Is(err, auth.ErrRefreshExpired):
 			log.Info("refresh: invalid or expired token")
-			_ = httpjson.Error(w, http.StatusUnauthorized, "invalid or expired refresh token")
+			writeError(w, http.StatusUnauthorized, "invalid or expired refresh token")
 		default:
 			log.Error("refresh: failed", logger.KeyError, err)
-			_ = httpjson.Error(w, http.StatusInternalServerError, "internal error")
+			writeError(w, http.StatusInternalServerError, "internal error")
 		}
 		return
 	}
@@ -227,14 +227,14 @@ func (h *Handler) JWKS(w http.ResponseWriter, r *http.Request) {
 	pub, err := h.tokenSvc.PublicKeyPEM()
 	if err != nil {
 		log.Error("jwks: failed to get public key", logger.KeyError, err)
-		_ = httpjson.Error(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
 	pubDER, err := x509.MarshalPKIXPublicKey(pub)
 	if err != nil {
 		log.Error("jwks: failed to marshal public key", logger.KeyError, err)
-		_ = httpjson.Error(w, http.StatusInternalServerError, "internal error")
+		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
