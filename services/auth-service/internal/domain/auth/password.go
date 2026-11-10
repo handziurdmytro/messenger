@@ -11,6 +11,7 @@ var (
 	ErrPasswordTooLong    = errors.New("password exceeds maximum length of 72 bytes")
 	ErrPasswordInvalid    = errors.New("invalid password")
 	ErrPasswordHashFailed = errors.New("failed to hash password")
+	ErrPasswordUnchanged  = errors.New("new password must differ from the current one")
 )
 
 type PasswordHash string
@@ -40,4 +41,15 @@ func CheckPassword(plain string, hash PasswordHash) error {
 		return ErrPasswordInvalid
 	}
 	return nil
+}
+
+func ChangePassword(hash PasswordHash, current, next string) (PasswordHash, error) {
+	if err := CheckPassword(current, hash); err != nil {
+		return "", err
+	}
+	if current == next {
+		return "", ErrPasswordUnchanged
+	}
+
+	return HashPassword(next)
 }
