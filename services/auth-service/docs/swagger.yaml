@@ -84,6 +84,51 @@ paths:
       summary: User login
       tags:
       - auth
+  /logout:
+    post:
+      consumes:
+      - application/json
+      description: Revokes the given refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.refreshRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request data
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      summary: Logout
+      tags:
+      - auth
+  /logout-all:
+    post:
+      description: Revokes every refresh token of the authenticated user
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Missing or invalid token
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout from all devices
+      tags:
+      - auth
   /refresh:
     post:
       consumes:

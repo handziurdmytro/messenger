@@ -32,26 +32,40 @@ type RefreshService interface {
 	Execute(context.Context, auth.RefreshToken) (auth.TokenPair, error)
 }
 
+type LogoutService interface {
+	Execute(context.Context, auth.RefreshToken) error
+}
+
+type LogoutAllService interface {
+	Execute(context.Context, auth.UserID) error
+}
+
 type Services struct {
-	Register RegisterService
-	Login    LoginService
-	Refresh  RefreshService
-	Token    TokenService
+	Register  RegisterService
+	Login     LoginService
+	Refresh   RefreshService
+	Logout    LogoutService
+	LogoutAll LogoutAllService
+	Token     TokenService
 }
 
 type Handler struct {
-	register RegisterService
-	login    LoginService
-	refresh  RefreshService
-	tokenSvc TokenService
+	register  RegisterService
+	login     LoginService
+	refresh   RefreshService
+	logout    LogoutService
+	logoutAll LogoutAllService
+	tokenSvc  TokenService
 }
 
 func NewHandler(services Services) *Handler {
 	return &Handler{
-		register: services.Register,
-		login:    services.Login,
-		refresh:  services.Refresh,
-		tokenSvc: services.Token,
+		register:  services.Register,
+		login:     services.Login,
+		refresh:   services.Refresh,
+		logout:    services.Logout,
+		logoutAll: services.LogoutAll,
+		tokenSvc:  services.Token,
 	}
 }
 
