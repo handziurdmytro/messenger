@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/handziurdmytro/messenger/pkg/logger"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/contact"
@@ -14,6 +16,10 @@ import (
 
 type GetProfileUseCase interface {
 	Execute(ctx context.Context, id user.ID) (user.User, error)
+}
+
+type GetProfilesUseCase interface {
+	Execute(ctx context.Context, ids []user.ID) ([]user.User, error)
 }
 
 type UpdateProfileUseCase interface {
@@ -43,6 +49,7 @@ type Handler struct {
 	addContact    AddContactUseCase
 	getContacts   GetContactsUseCase
 	removeContact RemoveContactUseCase
+	getProfiles   GetProfilesUseCase
 }
 
 type Services struct {
@@ -52,6 +59,7 @@ type Services struct {
 	AddContact    AddContactUseCase
 	GetContacts   GetContactsUseCase
 	RemoveContact RemoveContactUseCase
+	GetProfiles   GetProfilesUseCase
 }
 
 func NewHandler(services Services) *Handler {
@@ -62,6 +70,7 @@ func NewHandler(services Services) *Handler {
 		addContact:    services.AddContact,
 		getContacts:   services.GetContacts,
 		removeContact: services.RemoveContact,
+		getProfiles:   services.GetProfiles,
 	}
 }
 
@@ -285,4 +294,37 @@ func (h *Handler) RemoveContact(w http.ResponseWriter, r *http.Request) {
 
 	log.Info("remove_contact: succeeded", logger.KeyUserID, userID, "contact_id", contactID)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) GetProfiles(w http.ResponseWriter, r *http.Request) {
+	log := logger.WithComponent(logger.FromContext(r.Context()), "user-rest")
+
+	var ids []user.ID
+	for _, raw := range strings.Split(r.URL.Query().Get("ids"), ",") {
+		if id := strings.TrimSpace(raw); id != "" {
+			ids = append(ids, user.ID(id))
+		}
+	}
+
+	users, err := h.getProfiles.Execute(r.Context(), ids)
+	if err != nil {
+		if errors.Is(err, usecase.ErrTooManyIDs) {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("at most %d ids are allowed", usecase.MaxProfilesPerRequest))
+			return
+		}
+		log.Error("get_profiles: failed", logger.KeyError, err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	log.Info("get_profiles: succeeded", "requested", len(ids), "count", len(users))
+	writeJSON(w, http.StatusOK, toResponses(users))
+}
+
+func toResponses(users []user.User) []userResponse {
+	resp := make([]userResponse, len(users))
+	for i, u := range users {
+		resp[i] = toResponse(u)
+	}
+	return resp
 }

@@ -23,6 +23,7 @@ func NewServer(
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /me", h.GetProfile)
+	mux.HandleFunc("GET /profiles", h.GetProfiles)
 	mux.HandleFunc("GET /profiles/{id}", h.GetProfile)
 	mux.HandleFunc("PATCH /me", h.UpdateProfile)
 	mux.HandleFunc("GET /search", h.SearchUsers)
