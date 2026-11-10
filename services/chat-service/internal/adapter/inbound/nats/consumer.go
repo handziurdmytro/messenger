@@ -37,7 +37,7 @@ func NewMessageConsumer(
 	return &MessageConsumer{
 		consumer: consumer,
 		delivery: delivery,
-		dlq:      newDeadLetterPublisher(js),
+		dlq:      newDeadLetterPublisher(js, subjectMessageCreatedDLQ),
 		logger:   logger,
 	}
 }

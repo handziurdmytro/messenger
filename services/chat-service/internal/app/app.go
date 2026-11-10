@@ -26,6 +26,7 @@ var ErrStartup = errors.New("application startup failed")
 type App struct {
 	httpServer *rest.Server
 	consumer   *natsinbound.MessageConsumer
+	blocks     *natsinbound.UserBlocksConsumer
 	registry   *ws.Registry
 	natsClient *natskit.Client
 	pgPool     *pgxpool.Pool
@@ -72,7 +73,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, errkit.Wrap(ErrStartup, "get jetstream consumer", err)
 	}
 
+	blocksConsumer, err := natsClient.JS.Consumer(ctx, cfg.NATS.BlocksStream, cfg.NATS.BlocksConsumer)
+	if err != nil {
+		natsClient.Close()
+		pool.Close()
+		return nil, errkit.Wrap(ErrStartup, "get user blocks consumer", err)
+	}
+
 	chatRepo := postgres.NewChatRepository(pool)
+	blockRepo := postgres.NewBlockRepository(pool)
 
 	createChatUC := usecase.NewCreateChat(chatRepo)
 	getChatUC := usecase.NewGetChat(chatRepo)
@@ -107,6 +116,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	return &App{
 		httpServer: httpServer,
 		consumer:   messageConsumer,
+		blocks:     natsinbound.NewUserBlocksConsumer(blocksConsumer, natsClient.JS, usecase.NewApplyBlock(blockRepo), logger),
 		registry:   registry,
 		natsClient: natsClient,
 		pgPool:     pool,
@@ -129,6 +139,13 @@ func (a *App) Start(ctx context.Context) error {
 	g.Go(func() error {
 		if err := a.consumer.Run(gCtx); err != nil {
 			return fmt.Errorf("nats consumer: %w", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		if err := a.blocks.Run(gCtx); err != nil {
+			return fmt.Errorf("user blocks consumer: %w", err)
 		}
 		return nil
 	})

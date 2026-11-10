@@ -12,7 +12,10 @@ import (
 	"github.com/handziurdmytro/messenger/pkg/errkit"
 )
 
-const subjectMessageCreatedDLQ = "chat.messages.created.dlq"
+const (
+	subjectMessageCreatedDLQ = "chat.messages.created.dlq"
+	subjectUserBlocksDLQ     = "chat.user.blocks.dlq"
+)
 
 var ErrDLQPublishFailed = errors.New("dead letter publish failed")
 
@@ -24,11 +27,12 @@ type deadLetter struct {
 }
 
 type deadLetterPublisher struct {
-	js jetstream.JetStream
+	js      jetstream.JetStream
+	subject string
 }
 
-func newDeadLetterPublisher(js jetstream.JetStream) *deadLetterPublisher {
-	return &deadLetterPublisher{js: js}
+func newDeadLetterPublisher(js jetstream.JetStream, subject string) *deadLetterPublisher {
+	return &deadLetterPublisher{js: js, subject: subject}
 }
 
 func (p *deadLetterPublisher) Publish(ctx context.Context, msg jetstream.Msg, cause error) error {
@@ -48,7 +52,7 @@ func (p *deadLetterPublisher) Publish(ctx context.Context, msg jetstream.Msg, ca
 	}
 
 	id := fmt.Sprintf("%s:%d", meta.Stream, meta.Sequence.Stream)
-	if _, err := p.js.Publish(ctx, subjectMessageCreatedDLQ, data, jetstream.WithMsgID(id)); err != nil {
+	if _, err := p.js.Publish(ctx, p.subject, data, jetstream.WithMsgID(id)); err != nil {
 		return errkit.Wrap(ErrDLQPublishFailed, "publish dead letter", err)
 	}
 
