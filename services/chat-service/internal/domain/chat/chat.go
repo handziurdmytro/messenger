@@ -15,6 +15,8 @@ const (
 type Chat struct {
 	id           ID
 	chatType     Type
+	title        string
+	owner        UserID
 	participants []UserID
 	createdAt    time.Time
 }
@@ -93,4 +95,12 @@ func (c Chat) HasParticipant(id UserID) bool {
 
 func (c Chat) Participants() []UserID {
 	return slices.Clone(c.participants)
+}
+
+func (c Chat) Title() string {
+	return c.title
+}
+
+func (c Chat) Owner() UserID {
+	return c.owner
 }
