@@ -50,6 +50,9 @@ type Handler struct {
 	getContacts   GetContactsUseCase
 	removeContact RemoveContactUseCase
 	getProfiles   GetProfilesUseCase
+	blockUser     BlockUserUseCase
+	unblockUser   UnblockUserUseCase
+	listBlocked   ListBlockedUseCase
 }
 
 type Services struct {
@@ -60,6 +63,9 @@ type Services struct {
 	GetContacts   GetContactsUseCase
 	RemoveContact RemoveContactUseCase
 	GetProfiles   GetProfilesUseCase
+	BlockUser     BlockUserUseCase
+	UnblockUser   UnblockUserUseCase
+	ListBlocked   ListBlockedUseCase
 }
 
 func NewHandler(services Services) *Handler {
@@ -71,6 +77,9 @@ func NewHandler(services Services) *Handler {
 		getContacts:   services.GetContacts,
 		removeContact: services.RemoveContact,
 		getProfiles:   services.GetProfiles,
+		blockUser:     services.BlockUser,
+		unblockUser:   services.UnblockUser,
+		listBlocked:   services.ListBlocked,
 	}
 }
 

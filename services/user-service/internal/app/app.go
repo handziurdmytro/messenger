@@ -65,6 +65,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	queries := db.New(pool)
 	users := postgres.NewUserRepository(queries)
 	contacts := postgres.NewContactRepository(queries)
+	blocks := postgres.NewBlockRepository(queries)
 
 	server := rest.NewServer(
 		cfg.Server.Port,
@@ -76,6 +77,9 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 			GetContacts:   usecase.NewGetContactsUseCase(contacts),
 			RemoveContact: usecase.NewRemoveContactUseCase(contacts),
 			GetProfiles:   usecase.NewGetProfilesUseCase(users),
+			BlockUser:     usecase.NewBlockUserUseCase(users, blocks),
+			UnblockUser:   usecase.NewUnblockUserUseCase(blocks),
+			ListBlocked:   usecase.NewListBlockedUseCase(blocks),
 		},
 		log,
 	)

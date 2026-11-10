@@ -30,6 +30,9 @@ func NewServer(
 	mux.HandleFunc("POST /me/contacts", h.AddContact)
 	mux.HandleFunc("GET /me/contacts", h.GetContacts)
 	mux.HandleFunc("DELETE /me/contacts/{id}", h.RemoveContact)
+	mux.HandleFunc("POST /me/blocks", h.BlockUser)
+	mux.HandleFunc("GET /me/blocks", h.ListBlocked)
+	mux.HandleFunc("DELETE /me/blocks/{id}", h.UnblockUser)
 
 	handlerWithLogger := logger.HTTPMiddleware(baseLogger)(mux)
 
