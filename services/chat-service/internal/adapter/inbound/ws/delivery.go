@@ -37,6 +37,10 @@ func (d *MessageDelivery) DeliverDeleted(ctx context.Context, event message.Dele
 	return d.send(ctx, event.ChatID, "message.deleted", event)
 }
 
+func (d *MessageDelivery) DeliverRead(ctx context.Context, event message.ReadEvent) error {
+	return d.send(ctx, event.ChatID, "message.read", event)
+}
+
 func (d *MessageDelivery) send(ctx context.Context, rawChatID, eventType string, event any) error {
 	chatID, err := chat.ParseID(rawChatID)
 	if err != nil {

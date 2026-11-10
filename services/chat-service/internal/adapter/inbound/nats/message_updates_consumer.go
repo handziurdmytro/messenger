@@ -34,6 +34,7 @@ func decodeEvent[T validatable](data []byte) (T, error) {
 type MessageUpdateDelivery interface {
 	DeliverEdited(ctx context.Context, event message.EditedEvent) error
 	DeliverDeleted(ctx context.Context, event message.DeletedEvent) error
+	DeliverRead(ctx context.Context, event message.ReadEvent) error
 }
 
 type MessageUpdatesConsumer struct {
@@ -87,6 +88,11 @@ func (c *MessageUpdatesConsumer) handle(ctx context.Context, msg jetstream.Msg) 
 		var event message.DeletedEvent
 		if event, err = decodeEvent[message.DeletedEvent](msg.Data()); err == nil {
 			err = c.delivery.DeliverDeleted(ctx, event)
+		}
+	case message.SubjectMessageRead:
+		var event message.ReadEvent
+		if event, err = decodeEvent[message.ReadEvent](msg.Data()); err == nil {
+			err = c.delivery.DeliverRead(ctx, event)
 		}
 	default:
 		err = fmt.Errorf("%w: unexpected subject %s", errInvalidEvent, msg.Subject())
