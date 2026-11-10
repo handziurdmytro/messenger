@@ -1,304 +1,439 @@
-import { test, expect, type Page } from "@playwright/test";
-const me = {
-  id: "me",
-  email: "me@example.com",
-  display_name: "Alex Morgan",
-  avatar_url: "",
-};
-const friend = {
-  id: "friend",
-  email: "sam@example.com",
-  display_name: "Sam Rivera",
-  avatar_url: "",
-};
-const tokens = {
-  access_token: "access",
-  refresh_token: "refresh",
-  expires_at: "2099-01-01T00:00:00Z",
-};
-async function backend(page: Page, signedIn = true) {
-  if (signedIn)
+import { expect, test, type Page } from "@playwright/test";
+import { FakeBackend, message, tokens } from "./fake-backend";
+
+function messages(page: Page) {
+  return page.getByRole("log", { name: "Messages" });
+}
+
+async function openChat(page: Page, name: string) {
+  await page.locator(".list").getByRole("button", { name: new RegExp(name) }).click();
+}
+
+test.describe("authentication", () => {
+  test("signs in and signs out with token revocation", async ({ page }) => {
+    const backend = new FakeBackend();
+    await backend.install(page, false);
+    await page.goto("/");
+
+    await page.getByLabel("Email").fill("me@example.com");
+    await page.getByLabel("Password").fill("password123");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Chats" })).toBeVisible();
+    expect(backend.callsTo("POST", "/auth/login")[0].body).toEqual({ email: "me@example.com", password: "password123" });
+
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await expect.poll(() => backend.callsTo("POST", "/auth/logout")[0]?.body).toEqual({ refresh_token: tokens.refresh_token });
+  });
+
+  test("validates registration and shows server errors", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.overrides.set("POST /auth/register", (route) => route.fulfill({ status: 409, json: { error: "email already taken" } }));
+    await backend.install(page, false);
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "Create one" }).click();
+    await page.getByLabel("Email").fill("me@example.com");
+    await page.getByLabel("Password").fill("short");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByRole("alert")).toHaveText("Use a password between 8 and 72 bytes.");
+
+    await page.getByLabel("Password").fill("long-enough-password");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page.getByRole("alert")).toHaveText("email already taken");
+  });
+
+  test("refreshes an expired token once for concurrent requests", async ({ page }) => {
+    const backend = new FakeBackend();
     await page.addInitScript(
-      (value) =>
-        localStorage.setItem("messenger.session.v1", JSON.stringify(value)),
-      tokens,
+      (value) => localStorage.setItem("messenger.session.v1", JSON.stringify(value)),
+      { ...tokens, expires_at: "2000-01-01T00:00:00Z" },
     );
-  await page.route("**/api/**", (route) => {
-    const path = new URL(route.request().url()).pathname;
-    let data: unknown;
-    if (path.startsWith("/api/auth/")) data = tokens;
-    else if (path === "/api/users/me")
-      data =
-        route.request().method() === "PATCH"
-          ? { ...me, ...route.request().postDataJSON() }
-          : me;
-    else if (path === "/api/users/me/contacts")
-      data =
-        route.request().method() === "POST" ? { status: "success" } : [friend];
-    else if (path === "/api/users/search") data = [friend];
-    else if (path === "/api/chat/") data = route.request().method() === "POST" ? { id: "room" } : [];
-    else if (path === "/api/messages/chats/room/messages")
-      data = [
-        {
-          message_id: "first",
-          chat_id: "room",
-          from_user: "friend",
-          type: "text",
-          payload: { text: "Hello from the history API" },
-          created_at: "2026-10-07T10:00:00Z",
-        },
-      ];
-    else
-      return route.fulfill({
-        status: 404,
-        json: { error: "Unexpected endpoint" },
-      });
-    return route.fulfill({ json: data });
+    await backend.install(page, false);
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "Chats" })).toBeVisible();
+    expect(backend.callsTo("POST", "/auth/refresh")).toHaveLength(1);
   });
-}
-async function openChat(page: Page) {
-  await page.getByRole("button", { name: "Contacts", exact: true }).click();
-  await page
-    .getByRole("button", { name: /Sam Rivera sam@example.com/ })
-    .click();
-}
-test("login, profile editing and sign out", async ({ page }) => {
-  await backend(page, false);
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "Welcome back." }),
-  ).toBeVisible();
-  await page.getByLabel("Email address").fill("me@example.com");
-  await page.getByLabel("Password", { exact: true }).fill("password123");
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page.getByRole("button", { name: "Edit profile" }).click();
-  await page.getByLabel("Display name").fill("Alex Updated");
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByRole("dialog")).not.toBeVisible();
-  await page.getByRole("button", { name: "Edit profile" }).click();
-  await expect(page.getByLabel("Display name")).toHaveValue("Alex Updated");
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Welcome back." }),
-  ).toBeVisible();
-});
-test("registration submits backend contract and reports failures", async ({
-  page,
-}) => {
-  await backend(page, false);
-  await page.route("**/api/auth/register", (route) =>
-    route.fulfill({ status: 409, json: { error: "email already taken" } }),
-  );
-  await page.goto("/");
-  await page.getByRole("button", { name: "Create an account" }).click();
-  await page.getByLabel("Email address").fill("me@example.com");
-  await page.getByLabel("Password", { exact: true }).fill("password123");
-  await page
-    .getByRole("button", { name: "Create account", exact: true })
-    .click();
-  await expect(page.getByRole("alert")).toContainText("email already taken");
-});
-test("history normalization, WebSocket confirmation, and draft persistence", async ({
-  page,
-}) => {
-  await backend(page);
-  await page.routeWebSocket("**/ws?*", (ws) => {
-    ws.onMessage((data) => {
-      const message = JSON.parse(String(data));
-      ws.send(JSON.stringify({
-        type: "message.created",
-        message: {
-          message_id: message.message_id,
-          chat_id: "room",
-          from_user: "me",
-          type: "text",
-          payload: { text: message.payload.text },
-          created_at: "2026-10-08T10:00:00Z",
-        },
-      }));
-    });
-  });
-  await page.goto("/");
-  await openChat(page);
-  await expect(page.getByText("Hello from the history API")).toBeVisible();
-  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
-  await page
-    .getByRole("textbox", { name: "Message", exact: true })
-    .fill("A new message");
-  await page.getByRole("button", { name: "Send message" }).click();
-  await expect(page.getByText("A new message", { exact: true })).toHaveCount(1);
-  await expect(page.getByText("Unconfirmed")).toHaveCount(0);
-  await page
-    .getByRole("textbox", { name: "Message", exact: true })
-    .fill("Keep this draft");
-  await page
-    .getByRole("button", { name: "Conversations", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: /Sam Rivera sam@example.com/ })
-    .click();
-  await expect(
-    page.getByRole("textbox", { name: "Message", exact: true }),
-  ).toHaveValue("Keep this draft");
-});
-test("failed WebSocket preserves drafts and prevents sending on mobile", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await backend(page);
-  await page.routeWebSocket("**/ws?*", (ws) => {
-    setTimeout(() => ws.close(), 100);
-  });
-  await page.goto("/");
-  await openChat(page);
-  await expect(
-    page.getByText("Live connection unavailable.", { exact: false }),
-  ).toBeVisible();
-  await page
-    .getByRole("textbox", { name: "Message", exact: true })
-    .fill("Offline draft");
-  await expect(
-    page.getByRole("button", { name: "Send message" }),
-  ).toBeDisabled();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBeTruthy();
-  await page.getByRole("button", { name: "Back to conversations" }).click();
-  await expect(page.getByRole("heading", { name: /Messages/ })).toBeVisible();
-});
-test("people search and adding a contact", async ({ page }) => {
-  await backend(page);
-  await page.route("**/api/users/me/contacts", (route) =>
-    route.fulfill({
-      json: route.request().method() === "GET" ? [] : { status: "success" },
-    }),
-  );
-  await page.goto("/");
-  await page.getByRole("button", { name: "New conversation" }).click();
-  await page.getByLabel("Find people").fill("sam");
-  await page
-    .getByRole("button", { name: "Add Sam Rivera to contacts" })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Add Sam Rivera to contacts" }),
-  ).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Contacts", exact: true }).click();
-  await expect(page.getByText("sam@example.com")).toBeVisible();
-});
-test("concurrent expired requests use one token refresh", async ({ page }) => {
-  await backend(page, false);
-  await page.addInitScript(
-    (value) =>
-      localStorage.setItem(
-        "messenger.session.v1",
-        JSON.stringify({ ...value, expires_at: "2000-01-01T00:00:00Z" }),
-      ),
-    tokens,
-  );
-  let refreshes = 0;
-  await page.route("**/api/auth/refresh", async (route) => {
-    refreshes++;
-    await route.fulfill({ json: tokens });
-  });
-  await page.goto("/");
-  await expect(
-    page.getByRole("button", { name: "New conversation" }),
-  ).toBeEnabled();
-  expect(refreshes).toBe(1);
-});
-test("expired refresh returns to login", async ({ page }) => {
-  await backend(page, false);
-  await page.addInitScript(
-    (value) =>
-      localStorage.setItem(
-        "messenger.session.v1",
-        JSON.stringify({ ...value, expires_at: "2000-01-01T00:00:00Z" }),
-      ),
-    tokens,
-  );
-  await page.route("**/api/auth/refresh", (route) =>
-    route.fulfill({
-      status: 401,
-      json: { error: "invalid or expired refresh token" },
-    }),
-  );
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "Welcome back." }),
-  ).toBeVisible();
-});
-test("history pagination and incoming live broadcasts", async ({ page }) => {
-  await backend(page);
-  const history = Array.from({ length: 50 }, (_, index) => ({
-    message_id: `history-${index}`,
-    chat_id: "room",
-    from_user: "friend",
-    type: "text",
-    payload: { text: `History message ${index}` },
-    created_at: new Date(Date.UTC(2026, 9, 7, 12, 59 - index)).toISOString(),
-  }));
-  await page.route("**/api/messages/chats/room/messages?**", (route) =>
-    route.fulfill({
-      json: new URL(route.request().url()).searchParams.has("before")
-        ? [
-            {
-              ...history[0],
-              message_id: "oldest",
-              payload: { text: "Earlier message" },
-              created_at: "2026-10-06T10:00:00Z",
-            },
-          ]
-        : history,
-    }),
-  );
-  await page.routeWebSocket("**/ws?*", (ws) => {
-    setTimeout(
-      () =>
-        ws.send(
-          JSON.stringify({
-            type: "message.created",
-            message: {
-              message_id: "live-message",
-              chat_id: "room",
-              from_user: "friend",
-              type: "text",
-              payload: { text: "Live message before persistence" },
-              created_at: "2026-10-08T10:00:00Z",
-            },
-          }),
-        ),
-      200,
+
+  test("returns to sign in when the refresh token is rejected", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.overrides.set("POST /auth/refresh", (route) => route.fulfill({ status: 401, json: { error: "invalid or expired refresh token" } }));
+    await page.addInitScript(
+      (value) => localStorage.setItem("messenger.session.v1", JSON.stringify(value)),
+      { ...tokens, expires_at: "2000-01-01T00:00:00Z" },
     );
+    await backend.install(page, false);
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   });
-  await page.goto("/");
-  await openChat(page);
-  await expect(page.getByText("Live message before persistence")).toBeVisible();
-  await page.getByRole("button", { name: "Load earlier messages" }).click();
-  await expect(page.getByText("Earlier message")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Load earlier messages" }),
-  ).toHaveCount(0);
 });
-test("desktop and mobile visual review", async ({ page }, testInfo) => {
-  await backend(page, false);
-  await page.setViewportSize({ width: 1440, height: 960 });
-  await page.goto("/");
-  await page.screenshot({ path: testInfo.outputPath("login-desktop.png") });
-  await page.getByLabel("Email address").fill("me@example.com");
-  await page.getByLabel("Password", { exact: true }).fill("password123");
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "New conversation" }),
-  ).toBeEnabled();
-  await page.screenshot({ path: testInfo.outputPath("workspace-desktop.png") });
-  await page.routeWebSocket("**/ws?*", () => {});
-  await openChat(page);
-  await expect(page.getByText("Hello from the history API")).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("chat-desktop.png") });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: testInfo.outputPath("chat-mobile.png") });
+
+test.describe("chats", () => {
+  test("lists chats with previews and unread counts, and marks them read", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    backend.groupChat("g1", "Weekend", "kim", ["me", "sam"]);
+    backend.messages.push(message("m1", "c1", "sam", "Are you there?", 1), message("m2", "g1", "kim", "Plans?", 2));
+    backend.unread = { c1: 1, g1: 3 };
+    await backend.install(page);
+    await page.goto("/");
+
+    const list = page.locator(".list");
+    await expect(list.getByRole("button").first()).toContainText("Weekend");
+    await expect(list.getByRole("button", { name: /Weekend/ })).toContainText("Kim Lee: Plans?");
+    await expect(list.getByLabel("3 unread")).toBeVisible();
+    await expect(list.getByLabel("1 unread")).toBeVisible();
+
+    await openChat(page, "Sam Rivera");
+    await expect(messages(page).getByText("Are you there?")).toBeVisible();
+    await expect(list.getByLabel("1 unread")).toHaveCount(0);
+    await expect.poll(() => backend.callsTo("POST", "/messages/chats/c1/read")[0]?.body).toEqual({ message_id: "m1" });
+  });
+
+  test("loads more chats with the cursor", async ({ page }) => {
+    const backend = new FakeBackend();
+    for (let i = 0; i < 52; i++) backend.groupChat(`g${i}`, `Group ${i}`, "me", ["sam"]);
+    await backend.install(page);
+    await page.goto("/");
+
+    await expect(page.locator(".list > li > .list-item")).toHaveCount(50);
+    await page.getByRole("button", { name: "Load more" }).click();
+    await expect(page.locator(".list > li > .list-item")).toHaveCount(52);
+    expect(backend.calls.some((call) => call.path === "/chat/" && call.method === "GET")).toBe(true);
+  });
+
+  test("starts a private chat from search and adds a contact", async ({ page }) => {
+    const backend = new FakeBackend();
+    await backend.install(page);
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "New conversation" }).first().click();
+    await page.getByLabel("Search people").fill("lee");
+    const row = page.locator(".person").filter({ hasText: "Lee Park" });
+    await row.getByRole("button", { name: "Add" }).click();
+    await expect(row.getByRole("button", { name: "Add" })).toHaveCount(0);
+    expect(backend.contacts).toContain("lee");
+
+    await row.getByRole("button", { name: "Message" }).click();
+    await expect(page.getByRole("heading", { name: "Lee Park" })).toBeVisible();
+  });
+
+  test("deletes a private chat", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    await backend.install(page);
+    await page.goto("/");
+
+    await openChat(page, "Sam Rivera");
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Delete chat" }).click();
+    await expect(page.locator(".list")).toHaveCount(0);
+    await expect(page.getByText("No conversations yet.")).toBeVisible();
+  });
+});
+
+test.describe("messages", () => {
+  test("sends over the socket and confirms delivery", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    backend.autoConfirm = false;
+    await backend.install(page);
+    await page.goto("/");
+    await openChat(page, "Sam Rivera");
+
+    await page.getByLabel("Message", { exact: true }).fill("Hello Sam");
+    await page.keyboard.press("Enter");
+    const bubble = messages(page).locator(".message.mine");
+    await expect(bubble.getByLabel("Sending")).toBeVisible();
+    expect(backend.sent[0]).toMatchObject({ chat_id: "c1", type: "text", payload: { text: "Hello Sam" } });
+
+    const id = String(backend.sent[0].message_id);
+    backend.push({ type: "message.created", message: { message_id: id, chat_id: "c1", from_user: "me", type: "text", payload: { text: "Hello Sam" }, created_at: new Date().toISOString() } });
+    await expect(bubble.getByLabel("Sent")).toBeVisible();
+    await expect(page.getByLabel("Message", { exact: true })).toHaveValue("");
+  });
+
+  test("shows server rejections on the failed message", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    backend.autoConfirm = false;
+    await backend.install(page);
+    await page.goto("/");
+    await openChat(page, "Sam Rivera");
+
+    await page.getByLabel("Message", { exact: true }).fill("Hi");
+    await page.keyboard.press("Enter");
+    backend.push({ type: "error", message_id: backend.sent[0].message_id, error: "user is blocked" });
+    await expect(messages(page).getByText("user is blocked")).toBeVisible();
+    await expect(messages(page).getByLabel("Failed")).toBeVisible();
+  });
+
+  test("applies live edits, deletions and read receipts", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    backend.messages.push(message("m1", "c1", "sam", "Original", 1), message("m2", "c1", "me", "Mine", 2));
+    await backend.install(page);
+    await page.goto("/");
+    await openChat(page, "Sam Rivera");
+
+    const mine = messages(page).locator('[data-message-id="m2"]');
+    await expect(mine.getByLabel("Sent")).toBeVisible();
+
+    backend.push({ type: "message.edited", message: { message_id: "m1", chat_id: "c1", type: "text", payload: { text: "Changed" }, edited_at: "2026-11-10T10:05:00Z" } });
+    await expect(messages(page).getByText("Changed")).toBeVisible();
+    await expect(messages(page).locator('[data-message-id="m1"]')).toContainText("edited");
+
+    backend.push({ type: "message.deleted", message: { message_id: "m1", chat_id: "c1", deleted_at: "2026-11-10T10:06:00Z" } });
+    await expect(messages(page).locator('[data-message-id="m1"]')).toContainText("Message deleted");
+
+    backend.push({ type: "message.read", message: { chat_id: "c1", user_id: "sam", message_id: "m2", read_at: "2026-11-10T10:02:00Z" } });
+    await expect(mine.getByLabel("Read")).toBeVisible();
+  });
+
+  test("edits and deletes own messages", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    backend.messages.push(message("m1", "c1", "me", "Typo mesage", 1));
+    await backend.install(page);
+    await page.goto("/");
+    await openChat(page, "Sam Rivera");
+
+    const bubble = messages(page).locator('[data-message-id="m1"]');
+    await bubble.hover();
+    await bubble.getByRole("button", { name: "Edit message" }).click();
+    await expect(page.getByText("Editing message")).toBeVisible();
+    await page.getByLabel("Message", { exact: true }).fill("Typo message");
+    await page.getByRole("button", { name: "Save message" }).click();
+    await expect(bubble).toContainText("Typo message");
+    expect(backend.callsTo("PATCH", "/messages/chats/c1/messages/m1")[0].body).toEqual({ payload: { text: "Typo message" } });
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await bubble.hover();
+    await bubble.getByRole("button", { name: "Delete message" }).click();
+    await expect(bubble).toContainText("Message deleted");
+  });
+
+  test("counts unread messages from other chats and discovers new ones", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    await backend.install(page);
+    await page.goto("/");
+    await expect(page.locator(".list")).toContainText("Sam Rivera");
+
+    backend.push({ type: "message.created", message: { message_id: "x1", chat_id: "c1", from_user: "sam", type: "text", payload: { text: "Ping" }, created_at: new Date().toISOString() } });
+    await expect(page.locator(".list").getByLabel("1 unread")).toBeVisible();
+
+    backend.privateChat("c2", "kim");
+    backend.push({ type: "message.created", message: { message_id: "x2", chat_id: "c2", from_user: "kim", type: "text", payload: { text: "New chat" }, created_at: new Date().toISOString() } });
+    await expect(page.locator(".list").getByRole("button", { name: /Kim Lee/ })).toContainText("New chat");
+  });
+
+  test("loads earlier history", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    for (let i = 0; i < 55; i++) backend.messages.push(message(`m${i}`, "c1", "sam", `Message ${i}`, i));
+    await backend.install(page);
+    await page.goto("/");
+    await openChat(page, "Sam Rivera");
+
+    await expect(messages(page).locator(".message")).toHaveCount(50);
+    await page.getByRole("button", { name: "Load earlier messages" }).click();
+    await expect(messages(page).locator(".message")).toHaveCount(55);
+    await expect(messages(page).getByText("Message 0", { exact: true })).toBeVisible();
+  });
+});
+
+test.describe("groups", () => {
+  test("creates a group with selected members", async ({ page }) => {
+    const backend = new FakeBackend();
+    await backend.install(page);
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "New conversation" }).first().click();
+    await page.getByRole("tab", { name: "Group" }).click();
+    await page.getByLabel("Group name").fill("Team");
+    await page.locator(".person").filter({ hasText: "Sam Rivera" }).getByRole("button", { name: "Add" }).click();
+    await page.locator(".person").filter({ hasText: "Kim Lee" }).getByRole("button", { name: "Add" }).click();
+    await page.getByRole("button", { name: "Create group (3)" }).click();
+
+    await expect(page.getByRole("heading", { name: "Team" })).toBeVisible();
+    expect(backend.callsTo("POST", "/chats/groups")[0].body).toEqual({ title: "Team", member_ids: ["sam", "kim"] });
+  });
+
+  test("owner renames the group and manages members", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.groupChat("g1", "Team", "me", ["sam", "kim"]);
+    await backend.install(page);
+    await page.goto("/");
+    await openChat(page, "Team");
+
+    await page.getByRole("button", { name: "Group info" }).click();
+    const dialog = page.getByRole("dialog", { name: "Group" });
+    await dialog.getByLabel("Group name").fill("Core team");
+    await dialog.getByRole("button", { name: "Rename" }).click();
+    await expect(page.getByRole("heading", { name: "Core team" })).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Remove Kim Lee" }).click();
+    await expect(dialog.getByText("2 members")).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Add members" }).click();
+    await dialog.getByLabel("Search people").fill("lee");
+    await dialog.locator(".person").filter({ hasText: "Lee Park" }).getByRole("button", { name: "Add" }).click();
+    await expect(dialog.getByText("3 members")).toBeVisible();
+  });
+
+  test("members see read-only info and can leave", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.groupChat("g1", "Team", "sam", ["me"]);
+    await backend.install(page);
+    await page.goto("/");
+    await openChat(page, "Team");
+
+    await page.getByRole("button", { name: "Group info" }).click();
+    const dialog = page.getByRole("dialog", { name: "Group" });
+    await expect(dialog.getByRole("button", { name: "Rename" })).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: /Remove/ })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Close" }).click();
+
+    page.once("dialog", (confirm) => confirm.accept());
+    await page.getByRole("button", { name: "Leave group" }).click();
+    await expect(page.getByText("No conversations yet.")).toBeVisible();
+    expect(backend.callsTo("DELETE", "/chats/g1")).toHaveLength(1);
+  });
+});
+
+test.describe("people", () => {
+  test("removes contacts and blocks users", async ({ page }) => {
+    const backend = new FakeBackend();
+    await backend.install(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Contacts", exact: true }).click();
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Remove Kim Lee" }).click();
+    await expect(page.locator(".list")).not.toContainText("Kim Lee");
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Block Sam Rivera" }).click();
+    await expect(page.getByText("No contacts yet.")).toBeVisible();
+    expect(backend.blocked).toEqual(["sam"]);
+
+    await page.getByRole("button", { name: "Settings" }).click();
+    const blockedRow = page.locator(".settings-section").filter({ hasText: "Blocked users" }).locator(".person");
+    await expect(blockedRow).toContainText("Sam Rivera");
+    await blockedRow.getByRole("button", { name: "Unblock" }).click();
+    await expect(page.getByText("Nobody is blocked.")).toBeVisible();
+  });
+
+  test("disables writing to deleted and blocked users", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.user("sam").deleted = true;
+    backend.privateChat("c1", "sam");
+    backend.privateChat("c2", "kim");
+    backend.blocked = ["kim"];
+    await backend.install(page);
+    await page.goto("/");
+
+    await openChat(page, "Deleted account");
+    await expect(page.getByLabel("Message", { exact: true })).toBeDisabled();
+    await expect(page.getByLabel("Message", { exact: true })).toHaveAttribute("placeholder", "This account was deleted");
+
+    await openChat(page, "Kim Lee");
+    await expect(page.getByLabel("Message", { exact: true })).toHaveAttribute("placeholder", "You blocked this user");
+    await expect(page.getByRole("button", { name: "Block user" })).toHaveCount(0);
+  });
+});
+
+test.describe("settings", () => {
+  test("updates profile and changes password", async ({ page }) => {
+    const backend = new FakeBackend();
+    await backend.install(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Settings" }).click();
+
+    await page.getByLabel("Display name").fill("Alex Updated");
+    await page.getByRole("button", { name: "Save profile" }).click();
+    await expect(page.getByText("Profile saved.")).toBeVisible();
+
+    await page.getByLabel("Current password").fill("old-password");
+    await page.getByLabel("New password").fill("new-password");
+    await page.getByRole("button", { name: "Change password" }).click();
+    await expect(page.getByText("Password changed. Other devices were signed out.")).toBeVisible();
+    expect(backend.callsTo("PATCH", "/auth/password")[0].body).toEqual({ current_password: "old-password", new_password: "new-password" });
+    expect(backend.callsTo("POST", "/auth/login")[0].body).toEqual({ email: "me@example.com", password: "new-password" });
+  });
+
+  test("reports a wrong current password", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.overrides.set("PATCH /auth/password", (route) => route.fulfill({ status: 403, json: { error: "current password is incorrect" } }));
+    await backend.install(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Settings" }).click();
+
+    await page.getByLabel("Current password").fill("wrong-password");
+    await page.getByLabel("New password").fill("new-password");
+    await page.getByRole("button", { name: "Change password" }).click();
+    await expect(page.getByText("current password is incorrect")).toBeVisible();
+  });
+
+  test("signs out on all devices", async ({ page }) => {
+    const backend = new FakeBackend();
+    await backend.install(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Settings" }).click();
+    await page.getByRole("button", { name: "Sign out on all devices" }).click();
+
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    expect(backend.callsTo("POST", "/auth/logout-all")).toHaveLength(1);
+  });
+
+  test("deletes the account after confirmation", async ({ page }) => {
+    const backend = new FakeBackend();
+    await backend.install(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Settings" }).click();
+
+    await page.getByLabel("Confirm password").fill("password123");
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    expect(backend.callsTo("DELETE", "/auth/account")[0].body).toEqual({ password: "password123" });
+  });
+});
+
+test.describe("layout", () => {
+  test("mobile shows either the list or the chat", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    backend.messages.push(message("m1", "c1", "sam", "Hi on mobile", 1));
+    await page.setViewportSize({ width: 390, height: 780 });
+    await backend.install(page);
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "Chats" })).toBeVisible();
+    await openChat(page, "Sam Rivera");
+    await expect(messages(page).getByText("Hi on mobile")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Chats" })).toBeHidden();
+
+    await page.getByRole("button", { name: "Back" }).click();
+    await expect(page.getByRole("heading", { name: "Chats" })).toBeVisible();
+  });
+
+  test("reconnects after the socket drops", async ({ page }) => {
+    const backend = new FakeBackend();
+    backend.privateChat("c1", "sam");
+    await backend.install(page);
+    await page.goto("/");
+    await openChat(page, "Sam Rivera");
+
+    await expect(page.locator(".chat-title span")).toContainText("sam@example.com");
+    await backend.socket?.close();
+    await expect(page.getByText("Connection lost. Retrying…")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Send message" })).toBeDisabled();
+    await page.getByRole("button", { name: "Reconnect now" }).click();
+    await expect(page.getByText("Connection lost. Retrying…")).toBeHidden();
+  });
 });
