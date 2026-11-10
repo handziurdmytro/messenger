@@ -16,3 +16,7 @@ VALUES ($1, $2, $3, $4, $5);
 -- name: DeleteRefreshToken :exec
 DELETE FROM refresh_tokens
 WHERE token = $1;
+
+-- name: DeleteRefreshTokensByUserID :exec
+DELETE FROM refresh_tokens
+WHERE user_id = sqlc.arg(user_id);

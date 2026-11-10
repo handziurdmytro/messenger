@@ -16,3 +16,8 @@ INSERT INTO users (
     created_at
 )
 VALUES ($1, $2, $3, $4);
+
+-- name: UpdateUserPasswordHash :execrows
+UPDATE users
+SET password_hash = sqlc.arg(password_hash)
+WHERE id = sqlc.arg(id);
