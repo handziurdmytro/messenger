@@ -28,7 +28,7 @@ func (p *MessagePublisher) Publish(ctx context.Context, event message.CreatedEve
 	if err != nil {
 		return errkit.Wrap(usecase.ErrPublishFailed, "marshal message created event", err)
 	}
-	if err := p.publisher.PublishWithID(ctx, message.SubjectMessageCreated, data, event.MessageID); err != nil {
+	if err := p.publisher.PublishWithID(ctx, message.SubjectMessageCreated, data, event.MessageID+":created"); err != nil {
 		return errkit.Wrap(usecase.ErrPublishFailed, "publish message created event", err)
 	}
 	return nil
