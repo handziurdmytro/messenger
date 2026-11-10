@@ -8,7 +8,14 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api": { target, changeOrigin: true },
-        "/ws": { target, ws: true, changeOrigin: true },
+        "/ws": {
+          target,
+          ws: true,
+          changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on("proxyReqWs", (proxyReq) => proxyReq.setHeader("origin", new URL(target).origin));
+          },
+        },
       },
     },
   };
