@@ -233,6 +233,8 @@ func (h *Handler) AddContact(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, contact.ErrAlreadyExists):
 			writeError(w, http.StatusConflict, err.Error())
+		case errors.Is(err, contact.ErrBlocked):
+			writeError(w, http.StatusForbidden, err.Error())
 		case errors.Is(err, user.ErrNotFound):
 			log.Info("add_contact: contact not found", logger.KeyUserID, userID, "contact_id", req.ContactID)
 			writeError(w, http.StatusNotFound, "contact user not found")

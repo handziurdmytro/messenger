@@ -13,10 +13,15 @@ import (
 type AddContactUseCase struct {
 	users    outbound.UserRepository
 	contacts outbound.ContactRepository
+	blocks   outbound.BlockRepository
 }
 
-func NewAddContactUseCase(users outbound.UserRepository, contacts outbound.ContactRepository) *AddContactUseCase {
-	return &AddContactUseCase{users: users, contacts: contacts}
+func NewAddContactUseCase(
+	users outbound.UserRepository,
+	contacts outbound.ContactRepository,
+	blocks outbound.BlockRepository,
+) *AddContactUseCase {
+	return &AddContactUseCase{users: users, contacts: contacts, blocks: blocks}
 }
 
 func (uc *AddContactUseCase) Execute(ctx context.Context, userID, contactID user.ID) error {
@@ -30,6 +35,14 @@ func (uc *AddContactUseCase) Execute(ctx context.Context, userID, contactID user
 	}
 	if target.IsDeleted() {
 		return fmt.Errorf("check contact exists: %w", user.ErrNotFound)
+	}
+
+	blocked, err := uc.blocks.ExistsBetween(ctx, userID, contactID)
+	if err != nil {
+		return fmt.Errorf("check block: %w", err)
+	}
+	if blocked {
+		return contact.ErrBlocked
 	}
 	if err := uc.contacts.Add(ctx, c); err != nil {
 		return fmt.Errorf("add contact: %w", err)

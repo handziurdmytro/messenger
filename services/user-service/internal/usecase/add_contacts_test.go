@@ -26,9 +26,23 @@ func TestAddContactUseCase_Execute(t *testing.T) {
 		name       string
 		userID     user.ID
 		contactID  user.ID
+		blocked    bool
 		wantErr    error
 		setupMocks func(*MockUserRepository, *MockContactRepository)
 	}{
+		{
+			name:      "blocked",
+			userID:    "user-1",
+			contactID: "user-2",
+			blocked:   true,
+			wantErr:   contact.ErrBlocked,
+			setupMocks: func(users *MockUserRepository, _ *MockContactRepository) {
+				users.EXPECT().
+					FindByID(mock.Anything, user.ID("user-2")).
+					Return(target, nil).
+					Once()
+			},
+		},
 		{
 			name:      "success",
 			userID:    "user-1",
@@ -128,9 +142,14 @@ func TestAddContactUseCase_Execute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			users := NewMockUserRepository(t)
 			contacts := NewMockContactRepository(t)
+			blocks := NewMockBlockRepository(t)
+			blocks.EXPECT().
+				ExistsBetween(mock.Anything, tt.userID, tt.contactID).
+				Return(tt.blocked, nil).
+				Maybe()
 			tt.setupMocks(users, contacts)
 
-			uc := NewAddContactUseCase(users, contacts)
+			uc := NewAddContactUseCase(users, contacts, blocks)
 			err := uc.Execute(context.Background(), tt.userID, tt.contactID)
 
 			if tt.wantErr != nil {

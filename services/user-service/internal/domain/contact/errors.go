@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrAlreadyExists  = errors.New("contact already exists")
 	ErrNotFound       = errors.New("contact not found")
+	ErrBlocked        = errors.New("contact is blocked")
 	ErrCannotAddSelf  = errors.New("cannot add yourself to contacts")
 	ErrUserIDEmpty    = errors.New("user id is empty")
 	ErrContactIDEmpty = errors.New("contact id is empty")

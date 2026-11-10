@@ -73,7 +73,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 			GetProfile:    usecase.NewGetProfileUseCase(users),
 			UpdateProfile: usecase.NewUpdateProfileUseCase(users),
 			SearchUsers:   usecase.NewSearchUsersUseCase(users),
-			AddContact:    usecase.NewAddContactUseCase(users, contacts),
+			AddContact:    usecase.NewAddContactUseCase(users, contacts, blocks),
 			GetContacts:   usecase.NewGetContactsUseCase(contacts),
 			RemoveContact: usecase.NewRemoveContactUseCase(contacts),
 			GetProfiles:   usecase.NewGetProfilesUseCase(users),
