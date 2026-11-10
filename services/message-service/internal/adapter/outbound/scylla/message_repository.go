@@ -137,6 +137,36 @@ func (r *MessageRepository) FindByID(ctx context.Context, chatID message.ChatID,
 	return restore(chatID, row)
 }
 
+func (r *MessageRepository) Update(ctx context.Context, msg message.Message) error {
+	id, err := gocql.ParseUUID(string(msg.ID))
+	if err != nil {
+		return ErrNotFound
+	}
+
+	createdAt := msg.CreatedAt.UTC().Truncate(time.Millisecond)
+	payload := string(msg.Payload)
+	if msg.DeletedAt != nil {
+		payload = ""
+	}
+
+	applied, err := r.session.Query(`
+		UPDATE messages_by_chat
+		SET payload = ?, edited_at = ?, deleted_at = ?
+		WHERE chat_id = ? AND bucket = ? AND created_at = ? AND message_id = ?
+		IF EXISTS`,
+		payload, msg.EditedAt, msg.DeletedAt,
+		string(msg.ChatID), bucket(createdAt), createdAt, id,
+	).WithContext(ctx).MapScanCAS(map[string]any{})
+	if err != nil {
+		return errkit.Wrap(ErrPersistence, "update message", err)
+	}
+	if !applied {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
 func (r *MessageRepository) GetHistory(ctx context.Context, q usecase.HistoryQuery) ([]message.Message, error) {
 	if q.ChatID == "" || q.Limit < 0 || q.Limit > maxHistoryLimit || (q.Before.IsZero() && q.BeforeID != "") {
 		return nil, ErrInvalidQuery

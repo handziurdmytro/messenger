@@ -17,5 +17,6 @@ type HistoryQuery struct {
 type MessageRepository interface {
 	Save(ctx context.Context, msg message.Message) (message.Message, error)
 	FindByID(ctx context.Context, chatID message.ChatID, messageID message.ID) (message.Message, error)
+	Update(ctx context.Context, msg message.Message) error
 	GetHistory(ctx context.Context, query HistoryQuery) ([]message.Message, error)
 }
