@@ -87,11 +87,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	httpServer := rest.NewServer(
 		cfg.Server.Port,
-		createChatUC,
-		getChatUC,
+		rest.Services{
+			CreateChat: createChatUC,
+			GetChat:    getChatUC,
+			ListChats:  usecase.NewListChats(chatRepo),
+		},
 		wsHandler,
 		logger,
-		usecase.NewListChats(chatRepo),
 	)
 
 	messageConsumer := natsinbound.NewMessageConsumer(

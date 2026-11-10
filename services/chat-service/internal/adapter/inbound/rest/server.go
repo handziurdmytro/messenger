@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/handziurdmytro/messenger/chat-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
@@ -18,34 +17,16 @@ type Server struct {
 
 func NewServer(
 	port string,
-	createChat *usecase.CreateChatUseCase,
-	getChat *usecase.GetChatUseCase,
+	services Services,
 	wsHandler http.Handler,
 	baseLogger *slog.Logger,
-	listChats *usecase.ListChatsUseCase,
 ) *Server {
-	handler := NewHandler(createChat, getChat)
+	handler := NewHandler(services)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chats", handler.CreateChat)
 	mux.HandleFunc("GET /chats/{id}", handler.GetChat)
-	mux.HandleFunc("GET /chats", func(w http.ResponseWriter, r *http.Request) {
-		userID, err := authenticatedUser(r)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, "unauthorized")
-			return
-		}
-		chats, err := listChats.Execute(r.Context(), userID)
-		if err != nil {
-			handler.handleError(w, r, err)
-			return
-		}
-		result := make([]chatResponse, 0, len(chats))
-		for _, c := range chats {
-			result = append(result, toChatResponse(c))
-		}
-		writeJSON(w, http.StatusOK, result)
-	})
+	mux.HandleFunc("GET /chats", handler.ListChats)
 
 	if wsHandler != nil {
 		mux.Handle("GET /ws", wsHandler)

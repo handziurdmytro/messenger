@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,15 +13,35 @@ import (
 	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
-type Handler struct {
-	createChat *usecase.CreateChatUseCase
-	getChat    *usecase.GetChatUseCase
+type CreateChatUseCase interface {
+	Execute(ctx context.Context, u1, u2 chat.UserID) (chat.Chat, error)
 }
 
-func NewHandler(createChat *usecase.CreateChatUseCase, getChat *usecase.GetChatUseCase) *Handler {
+type GetChatUseCase interface {
+	Execute(ctx context.Context, chatID chat.ID, userID chat.UserID) (chat.Chat, error)
+}
+
+type ListChatsUseCase interface {
+	Execute(ctx context.Context, userID chat.UserID) ([]chat.Chat, error)
+}
+
+type Services struct {
+	CreateChat CreateChatUseCase
+	GetChat    GetChatUseCase
+	ListChats  ListChatsUseCase
+}
+
+type Handler struct {
+	createChat CreateChatUseCase
+	getChat    GetChatUseCase
+	listChats  ListChatsUseCase
+}
+
+func NewHandler(services Services) *Handler {
 	return &Handler{
-		createChat: createChat,
-		getChat:    getChat,
+		createChat: services.CreateChat,
+		getChat:    services.GetChat,
+		listChats:  services.ListChats,
 	}
 }
 
@@ -101,6 +122,26 @@ func (h *Handler) GetChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, toChatResponse(c))
+}
+
+func (h *Handler) ListChats(w http.ResponseWriter, r *http.Request) {
+	userID, err := authenticatedUser(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	chats, err := h.listChats.Execute(r.Context(), userID)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	result := make([]chatResponse, 0, len(chats))
+	for _, c := range chats {
+		result = append(result, toChatResponse(c))
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func authenticatedUser(r *http.Request) (chat.UserID, error) {
