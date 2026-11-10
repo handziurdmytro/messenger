@@ -65,3 +65,38 @@ func TestCheckPassword(t *testing.T) {
 		})
 	}
 }
+
+func TestChangePassword(t *testing.T) {
+	const current = "current-pass"
+
+	hash, err := HashPassword(current)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		current string
+		next    string
+		wantErr error
+	}{
+		{"valid change", current, "next-password", nil},
+		{"wrong current", "wrong-pass", "next-password", ErrPasswordInvalid},
+		{"unchanged", current, current, ErrPasswordUnchanged},
+		{"too short", current, "short", ErrPasswordTooShort},
+		{"too long", current, strings.Repeat("a", 73), ErrPasswordTooLong},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ChangePassword(hash, tt.current, tt.next)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				require.Empty(t, got)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NoError(t, CheckPassword(tt.next, got))
+		})
+	}
+}
