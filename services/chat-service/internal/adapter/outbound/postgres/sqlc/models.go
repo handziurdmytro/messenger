@@ -22,3 +22,10 @@ type Participant struct {
 	ChatID uuid.UUID `json:"chat_id"`
 	UserID uuid.UUID `json:"user_id"`
 }
+
+type UserBlock struct {
+	UserID    uuid.UUID `json:"user_id"`
+	BlockedID uuid.UUID `json:"blocked_id"`
+	Blocked   bool      `json:"blocked"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

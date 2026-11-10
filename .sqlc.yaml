@@ -109,3 +109,8 @@ sql:
             go_type:
               import: "time"
               type: "Time"
+
+          - column: "user_blocks.updated_at"
+            go_type:
+              import: "time"
+              type: "Time"
