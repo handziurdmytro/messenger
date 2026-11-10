@@ -46,6 +46,7 @@ type NATSConfig struct {
 	Stream          string        `env:"STREAM" envDefault:"USERS"`
 	Consumer        string        `env:"CONSUMER" envDefault:"user-created"`
 	DeletedConsumer string        `env:"DELETED_CONSUMER" envDefault:"user-deleted"`
+	OutboxInterval  time.Duration `env:"OUTBOX_INTERVAL" envDefault:"1s"`
 }
 
 type LogConfig struct {
@@ -88,7 +89,7 @@ func (c Config) Validate() error {
 		)
 	}
 
-	if len(c.NATS.URLs) == 0 || c.NATS.Stream == "" || c.NATS.Consumer == "" || c.NATS.DeletedConsumer == "" {
+	if len(c.NATS.URLs) == 0 || c.NATS.Stream == "" || c.NATS.Consumer == "" || c.NATS.DeletedConsumer == "" || c.NATS.OutboxInterval <= 0 {
 		return fmt.Errorf("invalid NATS configuration")
 	}
 

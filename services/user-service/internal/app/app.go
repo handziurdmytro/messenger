@@ -23,6 +23,7 @@ type App struct {
 	server     *rest.Server
 	consumer   *natsinbound.UserCreatedConsumer
 	deleted    *natsinbound.UserDeletedConsumer
+	outbox     *natskit.OutboxRelay
 	natsClient *natskit.Client
 	closeDB    func()
 	done       chan struct{}
@@ -87,6 +88,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	return &App{
 		server:     server,
 		consumer:   natsinbound.NewUserCreatedConsumer(consumer, natsClient.JS, users, log),
+		outbox:     natskit.NewOutboxRelay(postgres.NewOutboxRepository(queries), natskit.NewPublisher(natsClient.JS), log, cfg.NATS.OutboxInterval),
 		deleted:    natsinbound.NewUserDeletedConsumer(deletedConsumer, natsClient.JS, usecase.NewDeleteUserUseCase(users), log),
 		natsClient: natsClient,
 		closeDB:    pool.Close,
@@ -109,6 +111,9 @@ func (a *App) Start(ctx context.Context) error {
 	})
 	g.Go(func() error {
 		return a.deleted.Run(gCtx)
+	})
+	g.Go(func() error {
+		return a.outbox.Run(gCtx)
 	})
 	return g.Wait()
 }

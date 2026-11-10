@@ -79,6 +79,11 @@ sql:
             go_type:
               import: "time"
               type: "Time"
+
+          - column: "outbox_events.created_at"
+            go_type:
+              import: "time"
+              type: "Time"
   - engine: "postgresql"
     schema: "./services/chat-service/migrations"
     queries: "./services/chat-service/internal/adapter/outbound/postgres/queries"

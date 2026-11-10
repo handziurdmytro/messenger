@@ -6,6 +6,8 @@ package db
 
 import (
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Block struct {
@@ -18,6 +20,14 @@ type Contact struct {
 	UserID    string    `json:"user_id"`
 	ContactID string    `json:"contact_id"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type OutboxEvent struct {
+	ID          string             `json:"id"`
+	Subject     string             `json:"subject"`
+	Payload     []byte             `json:"payload"`
+	CreatedAt   time.Time          `json:"created_at"`
+	PublishedAt pgtype.Timestamptz `json:"published_at"`
 }
 
 type User struct {
