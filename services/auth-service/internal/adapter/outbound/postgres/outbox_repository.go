@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/jackc/pgx/v5"
-
+	db "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
 	contract "github.com/handziurdmytro/messenger/pkg/contracts/user"
@@ -13,11 +12,11 @@ import (
 )
 
 type OutboxRepository struct {
-	tx pgx.Tx
+	q *db.Queries
 }
 
-func NewOutboxRepository(tx pgx.Tx) *OutboxRepository {
-	return &OutboxRepository{tx: tx}
+func NewOutboxRepository(q *db.Queries) *OutboxRepository {
+	return &OutboxRepository{q: q}
 }
 
 func (r *OutboxRepository) SaveUserCreated(ctx context.Context, user auth.User) error {
@@ -35,12 +34,11 @@ func (r *OutboxRepository) SaveUserCreated(ctx context.Context, user auth.User) 
 		return errkit.Wrap(outbound.ErrPersistence, "marshal user created", err)
 	}
 
-	_, err = r.tx.Exec(ctx, `
-		INSERT INTO outbox_events (id, subject, payload)
-		VALUES ($1, $2, $3)`,
-		event.UserID, contract.SubjectCreated, data,
-	)
-	if err != nil {
+	if err := r.q.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
+		ID:      event.UserID,
+		Subject: contract.SubjectCreated,
+		Payload: data,
+	}); err != nil {
 		return errkit.Wrap(outbound.ErrPersistence, "save outbox event", err)
 	}
 	return nil
