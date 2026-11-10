@@ -1,17 +1,18 @@
 -- name: CreateChat :exec
-INSERT INTO chats (id, type, private_key, created_at)
+INSERT INTO chats (id, type, title, private_key, created_at)
 VALUES (sqlc.arg(id),
         sqlc.arg(type),
-        sqlc.arg(private_key),
+        sqlc.narg(title),
+        sqlc.narg(private_key),
         sqlc.arg(created_at));
 
 -- name: FindChatByID :one
-SELECT id, type, private_key, created_at
+SELECT id, type, title, private_key, created_at
 FROM chats
 WHERE id = sqlc.arg(id);
 
 -- name: FindPrivateByParticipants :one
-SELECT id, type, private_key, created_at
+SELECT id, type, title, private_key, created_at
 FROM chats
 WHERE type = 'private'
   AND private_key = sqlc.arg(private_key);
@@ -19,8 +20,10 @@ WHERE type = 'private'
 -- name: ListChatsByUser :many
 SELECT c.id,
        c.type,
+       c.title,
        c.created_at,
-       array_agg(p.user_id ORDER BY p.user_id)::uuid[] AS participant_ids
+       array_agg(p.user_id ORDER BY p.joined_at, p.user_id)::uuid[]                       AS participant_ids,
+       coalesce(array_agg(p.user_id) FILTER (WHERE p.role = 'owner'), '{}')::uuid[] AS owner_ids
 FROM chats c
          JOIN participants p ON p.chat_id = c.id
 WHERE EXISTS (SELECT 1
@@ -32,6 +35,11 @@ WHERE EXISTS (SELECT 1
 GROUP BY c.id
 ORDER BY c.created_at DESC, c.id DESC
 LIMIT sqlc.arg(limit_count);
+
+-- name: UpdateChatTitle :exec
+UPDATE chats
+SET title = sqlc.narg(title)
+WHERE id = sqlc.arg(id);
 
 -- name: DeleteChat :execrows
 DELETE FROM chats

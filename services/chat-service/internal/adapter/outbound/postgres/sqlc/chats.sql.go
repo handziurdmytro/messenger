@@ -14,16 +14,18 @@ import (
 )
 
 const createChat = `-- name: CreateChat :exec
-INSERT INTO chats (id, type, private_key, created_at)
+INSERT INTO chats (id, type, title, private_key, created_at)
 VALUES ($1,
         $2,
         $3,
-        $4)
+        $4,
+        $5)
 `
 
 type CreateChatParams struct {
 	ID         uuid.UUID   `json:"id"`
 	Type       string      `json:"type"`
+	Title      pgtype.Text `json:"title"`
 	PrivateKey pgtype.Text `json:"private_key"`
 	CreatedAt  time.Time   `json:"created_at"`
 }
@@ -32,6 +34,7 @@ func (q *Queries) CreateChat(ctx context.Context, arg CreateChatParams) error {
 	_, err := q.db.Exec(ctx, createChat,
 		arg.ID,
 		arg.Type,
+		arg.Title,
 		arg.PrivateKey,
 		arg.CreatedAt,
 	)
@@ -52,7 +55,7 @@ func (q *Queries) DeleteChat(ctx context.Context, id uuid.UUID) (int64, error) {
 }
 
 const findChatByID = `-- name: FindChatByID :one
-SELECT id, type, private_key, created_at
+SELECT id, type, title, private_key, created_at
 FROM chats
 WHERE id = $1
 `
@@ -60,6 +63,7 @@ WHERE id = $1
 type FindChatByIDRow struct {
 	ID         uuid.UUID   `json:"id"`
 	Type       string      `json:"type"`
+	Title      pgtype.Text `json:"title"`
 	PrivateKey pgtype.Text `json:"private_key"`
 	CreatedAt  time.Time   `json:"created_at"`
 }
@@ -70,6 +74,7 @@ func (q *Queries) FindChatByID(ctx context.Context, id uuid.UUID) (FindChatByIDR
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
+		&i.Title,
 		&i.PrivateKey,
 		&i.CreatedAt,
 	)
@@ -77,7 +82,7 @@ func (q *Queries) FindChatByID(ctx context.Context, id uuid.UUID) (FindChatByIDR
 }
 
 const findPrivateByParticipants = `-- name: FindPrivateByParticipants :one
-SELECT id, type, private_key, created_at
+SELECT id, type, title, private_key, created_at
 FROM chats
 WHERE type = 'private'
   AND private_key = $1
@@ -86,6 +91,7 @@ WHERE type = 'private'
 type FindPrivateByParticipantsRow struct {
 	ID         uuid.UUID   `json:"id"`
 	Type       string      `json:"type"`
+	Title      pgtype.Text `json:"title"`
 	PrivateKey pgtype.Text `json:"private_key"`
 	CreatedAt  time.Time   `json:"created_at"`
 }
@@ -96,6 +102,7 @@ func (q *Queries) FindPrivateByParticipants(ctx context.Context, privateKey pgty
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
+		&i.Title,
 		&i.PrivateKey,
 		&i.CreatedAt,
 	)
@@ -105,8 +112,10 @@ func (q *Queries) FindPrivateByParticipants(ctx context.Context, privateKey pgty
 const listChatsByUser = `-- name: ListChatsByUser :many
 SELECT c.id,
        c.type,
+       c.title,
        c.created_at,
-       array_agg(p.user_id ORDER BY p.user_id)::uuid[] AS participant_ids
+       array_agg(p.user_id ORDER BY p.joined_at, p.user_id)::uuid[]                       AS participant_ids,
+       coalesce(array_agg(p.user_id) FILTER (WHERE p.role = 'owner'), '{}')::uuid[] AS owner_ids
 FROM chats c
          JOIN participants p ON p.chat_id = c.id
 WHERE EXISTS (SELECT 1
@@ -130,8 +139,10 @@ type ListChatsByUserParams struct {
 type ListChatsByUserRow struct {
 	ID             uuid.UUID   `json:"id"`
 	Type           string      `json:"type"`
+	Title          pgtype.Text `json:"title"`
 	CreatedAt      time.Time   `json:"created_at"`
 	ParticipantIds []uuid.UUID `json:"participant_ids"`
+	OwnerIds       []uuid.UUID `json:"owner_ids"`
 }
 
 func (q *Queries) ListChatsByUser(ctx context.Context, arg ListChatsByUserParams) ([]ListChatsByUserRow, error) {
@@ -151,8 +162,10 @@ func (q *Queries) ListChatsByUser(ctx context.Context, arg ListChatsByUserParams
 		if err := rows.Scan(
 			&i.ID,
 			&i.Type,
+			&i.Title,
 			&i.CreatedAt,
 			&i.ParticipantIds,
+			&i.OwnerIds,
 		); err != nil {
 			return nil, err
 		}
@@ -162,4 +175,20 @@ func (q *Queries) ListChatsByUser(ctx context.Context, arg ListChatsByUserParams
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateChatTitle = `-- name: UpdateChatTitle :exec
+UPDATE chats
+SET title = $1
+WHERE id = $2
+`
+
+type UpdateChatTitleParams struct {
+	Title pgtype.Text `json:"title"`
+	ID    uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) UpdateChatTitle(ctx context.Context, arg UpdateChatTitleParams) error {
+	_, err := q.db.Exec(ctx, updateChatTitle, arg.Title, arg.ID)
+	return err
 }

@@ -12,43 +12,83 @@ import (
 )
 
 const addParticipant = `-- name: AddParticipant :exec
-INSERT INTO participants (chat_id, user_id)
-VALUES ($1, $2)
+INSERT INTO participants (chat_id, user_id, role)
+VALUES ($1, $2, $3)
 `
 
 type AddParticipantParams struct {
 	ChatID uuid.UUID `json:"chat_id"`
 	UserID uuid.UUID `json:"user_id"`
+	Role   string    `json:"role"`
 }
 
 func (q *Queries) AddParticipant(ctx context.Context, arg AddParticipantParams) error {
-	_, err := q.db.Exec(ctx, addParticipant, arg.ChatID, arg.UserID)
+	_, err := q.db.Exec(ctx, addParticipant, arg.ChatID, arg.UserID, arg.Role)
 	return err
 }
 
 const listParticipantsByChatID = `-- name: ListParticipantsByChatID :many
-SELECT user_id
+SELECT user_id, role
 FROM participants
 WHERE chat_id = $1
-ORDER BY user_id
+ORDER BY joined_at, user_id
 `
 
-func (q *Queries) ListParticipantsByChatID(ctx context.Context, chatID uuid.UUID) ([]uuid.UUID, error) {
+type ListParticipantsByChatIDRow struct {
+	UserID uuid.UUID `json:"user_id"`
+	Role   string    `json:"role"`
+}
+
+func (q *Queries) ListParticipantsByChatID(ctx context.Context, chatID uuid.UUID) ([]ListParticipantsByChatIDRow, error) {
 	rows, err := q.db.Query(ctx, listParticipantsByChatID, chatID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []uuid.UUID{}
+	items := []ListParticipantsByChatIDRow{}
 	for rows.Next() {
-		var user_id uuid.UUID
-		if err := rows.Scan(&user_id); err != nil {
+		var i ListParticipantsByChatIDRow
+		if err := rows.Scan(&i.UserID, &i.Role); err != nil {
 			return nil, err
 		}
-		items = append(items, user_id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeParticipant = `-- name: RemoveParticipant :exec
+DELETE FROM participants
+WHERE chat_id = $1
+  AND user_id = $2
+`
+
+type RemoveParticipantParams struct {
+	ChatID uuid.UUID `json:"chat_id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) RemoveParticipant(ctx context.Context, arg RemoveParticipantParams) error {
+	_, err := q.db.Exec(ctx, removeParticipant, arg.ChatID, arg.UserID)
+	return err
+}
+
+const setParticipantRole = `-- name: SetParticipantRole :exec
+UPDATE participants
+SET role = $1
+WHERE chat_id = $2
+  AND user_id = $3
+`
+
+type SetParticipantRoleParams struct {
+	Role   string    `json:"role"`
+	ChatID uuid.UUID `json:"chat_id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) SetParticipantRole(ctx context.Context, arg SetParticipantRoleParams) error {
+	_, err := q.db.Exec(ctx, setParticipantRole, arg.Role, arg.ChatID, arg.UserID)
+	return err
 }

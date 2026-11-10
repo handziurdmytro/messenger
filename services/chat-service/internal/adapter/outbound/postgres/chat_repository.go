@@ -35,46 +35,55 @@ func NewChatRepository(pool *pgxpool.Pool) *ChatRepository {
 	}
 }
 
+const (
+	roleOwner  = "owner"
+	roleMember = "member"
+)
+
+type chatRecord struct {
+	id           uuid.UUID
+	chatType     string
+	title        pgtype.Text
+	createdAt    time.Time
+	participants []uuid.UUID
+	owner        uuid.UUID
+}
+
 func (r *ChatRepository) Save(ctx context.Context, c chat.Chat) error {
 	id, err := uuid.Parse(string(c.ID()))
 	if err != nil {
 		return errkit.Wrap(usecase.ErrPersistence, "postgres: parse chat ID", err)
 	}
 
-	if c.Type() != chat.TypePrivate {
-		return chat.ErrUnsupportedChatType
+	params := db.CreateChatParams{
+		ID:        id,
+		Type:      string(c.Type()),
+		CreatedAt: c.CreatedAt(),
 	}
 
 	participants := c.Participants()
-	slices.Sort(participants)
-
-	privateKey := pgtype.Text{
-		String: fmt.Sprintf("%s:%s", participants[0], participants[1]),
-		Valid:  true,
+	switch c.Type() {
+	case chat.TypePrivate:
+		slices.Sort(participants)
+		params.PrivateKey = pgtype.Text{
+			String: fmt.Sprintf("%s:%s", participants[0], participants[1]),
+			Valid:  true,
+		}
+	case chat.TypeGroup:
+		params.Title = pgtype.Text{String: c.Title(), Valid: true}
+	default:
+		return chat.ErrUnsupportedChatType
 	}
 
 	err = pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
 		q := r.q.WithTx(tx)
 
-		if err := q.CreateChat(ctx, db.CreateChatParams{
-			ID:         id,
-			Type:       string(c.Type()),
-			PrivateKey: privateKey,
-			CreatedAt:  c.CreatedAt(),
-		}); err != nil {
+		if err := q.CreateChat(ctx, params); err != nil {
 			return err
 		}
 
 		for _, participant := range participants {
-			userID, err := uuid.Parse(string(participant))
-			if err != nil {
-				return err
-			}
-
-			if err := q.AddParticipant(ctx, db.AddParticipantParams{
-				ChatID: id,
-				UserID: userID,
-			}); err != nil {
+			if err := addParticipant(ctx, q, id, participant, roleFor(c, participant)); err != nil {
 				return err
 			}
 		}
@@ -91,6 +100,85 @@ func (r *ChatRepository) Save(ctx context.Context, c chat.Chat) error {
 	return nil
 }
 
+func (r *ChatRepository) Update(ctx context.Context, c chat.Chat) error {
+	id, err := uuid.Parse(string(c.ID()))
+	if err != nil {
+		return chat.ErrInvalidChatID
+	}
+
+	err = pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		q := r.q.WithTx(tx)
+
+		if err := q.UpdateChatTitle(ctx, db.UpdateChatTitleParams{
+			ID:    id,
+			Title: pgtype.Text{String: c.Title(), Valid: c.Title() != ""},
+		}); err != nil {
+			return err
+		}
+
+		current, err := q.ListParticipantsByChatID(ctx, id)
+		if err != nil {
+			return err
+		}
+
+		existing := make(map[chat.UserID]bool, len(current))
+		for _, row := range current {
+			userID := chat.UserID(row.UserID.String())
+			existing[userID] = true
+			if !c.HasParticipant(userID) {
+				if err := q.RemoveParticipant(ctx, db.RemoveParticipantParams{ChatID: id, UserID: row.UserID}); err != nil {
+					return err
+				}
+			}
+		}
+
+		for _, participant := range c.Participants() {
+			role := roleFor(c, participant)
+			if !existing[participant] {
+				if err := addParticipant(ctx, q, id, participant, role); err != nil {
+					return err
+				}
+				continue
+			}
+
+			userID, err := uuid.Parse(string(participant))
+			if err != nil {
+				return err
+			}
+			if err := q.SetParticipantRole(ctx, db.SetParticipantRoleParams{ChatID: id, UserID: userID, Role: role}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errkit.Wrap(usecase.ErrPersistence, "postgres: update chat", err)
+	}
+
+	return nil
+}
+
+func addParticipant(ctx context.Context, q *db.Queries, chatID uuid.UUID, participant chat.UserID, role string) error {
+	userID, err := uuid.Parse(string(participant))
+	if err != nil {
+		return err
+	}
+
+	return q.AddParticipant(ctx, db.AddParticipantParams{
+		ChatID: chatID,
+		UserID: userID,
+		Role:   role,
+	})
+}
+
+func roleFor(c chat.Chat, participant chat.UserID) string {
+	if c.Type() == chat.TypeGroup && participant == c.Owner() {
+		return roleOwner
+	}
+	return roleMember
+}
+
 func (r *ChatRepository) FindByID(ctx context.Context, id chat.ID) (chat.Chat, error) {
 	parsedID, err := uuid.Parse(string(id))
 	if err != nil {
@@ -102,7 +190,7 @@ func (r *ChatRepository) FindByID(ctx context.Context, id chat.ID) (chat.Chat, e
 		return chat.Chat{}, findError("postgres: find chat", err)
 	}
 
-	return r.restore(ctx, row.ID, row.Type, row.CreatedAt)
+	return r.restore(ctx, chatRecord{id: row.ID, chatType: row.Type, title: row.Title, createdAt: row.CreatedAt})
 }
 
 func (r *ChatRepository) FindPrivateByParticipants(ctx context.Context, u1, u2 chat.UserID) (chat.Chat, error) {
@@ -119,25 +207,42 @@ func (r *ChatRepository) FindPrivateByParticipants(ctx context.Context, u1, u2 c
 		return chat.Chat{}, findError("postgres: find private chat", err)
 	}
 
-	return r.restore(ctx, row.ID, row.Type, row.CreatedAt)
+	return r.restore(ctx, chatRecord{id: row.ID, chatType: row.Type, title: row.Title, createdAt: row.CreatedAt})
 }
 
-func (r *ChatRepository) restore(ctx context.Context, id uuid.UUID, chatType string, createdAt time.Time) (chat.Chat, error) {
-	userIDs, err := r.q.ListParticipantsByChatID(ctx, id)
+func (r *ChatRepository) restore(ctx context.Context, record chatRecord) (chat.Chat, error) {
+	rows, err := r.q.ListParticipantsByChatID(ctx, record.id)
 	if err != nil {
 		return chat.Chat{}, errkit.Wrap(usecase.ErrPersistence, "postgres: list participants", err)
 	}
 
-	return toDomain(id, chatType, userIDs, createdAt)
+	for _, row := range rows {
+		record.participants = append(record.participants, row.UserID)
+		if row.Role == roleOwner {
+			record.owner = row.UserID
+		}
+	}
+
+	return toDomain(record)
 }
 
-func toDomain(id uuid.UUID, chatType string, userIDs []uuid.UUID, createdAt time.Time) (chat.Chat, error) {
-	participants := make([]chat.UserID, 0, len(userIDs))
-	for _, userID := range userIDs {
+func toDomain(record chatRecord) (chat.Chat, error) {
+	participants := make([]chat.UserID, 0, len(record.participants))
+	for _, userID := range record.participants {
 		participants = append(participants, chat.UserID(userID.String()))
 	}
 
-	c, err := chat.Restore(chat.ID(id.String()), chat.Type(chatType), participants, createdAt)
+	id := chat.ID(record.id.String())
+
+	var (
+		c   chat.Chat
+		err error
+	)
+	if chat.Type(record.chatType) == chat.TypeGroup {
+		c, err = chat.RestoreGroup(id, record.title.String, chat.UserID(record.owner.String()), participants, record.createdAt)
+	} else {
+		c, err = chat.Restore(id, chat.Type(record.chatType), participants, record.createdAt)
+	}
 	if err != nil {
 		return chat.Chat{}, errkit.Wrap(usecase.ErrPersistence, "postgres: restore chat", err)
 	}
@@ -199,7 +304,18 @@ func (r *ChatRepository) ListByUser(ctx context.Context, userID chat.UserID, pag
 
 	chats := make([]chat.Chat, 0, len(rows))
 	for _, row := range rows {
-		c, err := toDomain(row.ID, row.Type, row.ParticipantIds, row.CreatedAt)
+		record := chatRecord{
+			id:           row.ID,
+			chatType:     row.Type,
+			title:        row.Title,
+			createdAt:    row.CreatedAt,
+			participants: row.ParticipantIds,
+		}
+		if len(row.OwnerIds) > 0 {
+			record.owner = row.OwnerIds[0]
+		}
+
+		c, err := toDomain(record)
 		if err != nil {
 			return nil, err
 		}
