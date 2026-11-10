@@ -11,9 +11,14 @@ import (
 const (
 	SubjectCreated    = "user.created"
 	SubjectCreatedDLQ = "user.created.dlq"
+	SubjectDeleted    = "user.deleted"
+	SubjectDeletedDLQ = "user.deleted.dlq"
 )
 
-var ErrInvalidCreatedEvent = errors.New("invalid user created event")
+var (
+	ErrInvalidCreatedEvent = errors.New("invalid user created event")
+	ErrInvalidDeletedEvent = errors.New("invalid user deleted event")
+)
 
 type CreatedEvent struct {
 	UserID    string    `json:"user_id"`
@@ -30,6 +35,21 @@ func (e CreatedEvent) Validate() error {
 	}
 	if e.CreatedAt.IsZero() {
 		return ErrInvalidCreatedEvent
+	}
+	return nil
+}
+
+type DeletedEvent struct {
+	UserID    string    `json:"user_id"`
+	DeletedAt time.Time `json:"deleted_at"`
+}
+
+func (e DeletedEvent) Validate() error {
+	if _, err := uuid.Parse(e.UserID); err != nil {
+		return ErrInvalidDeletedEvent
+	}
+	if e.DeletedAt.IsZero() {
+		return ErrInvalidDeletedEvent
 	}
 	return nil
 }
