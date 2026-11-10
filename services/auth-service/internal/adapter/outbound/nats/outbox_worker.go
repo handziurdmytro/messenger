@@ -2,34 +2,39 @@ package nats
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/handziurdmytro/messenger/pkg/natskit"
+	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
 )
 
+const outboxBatchSize int32 = 100
+
+type Publisher interface {
+	PublishWithID(ctx context.Context, subject string, data []byte, id string) error
+}
+
 type OutboxWorker struct {
-	db        *pgxpool.Pool
-	publisher *natskit.Publisher
+	store     outbound.OutboxStore
+	publisher Publisher
 	log       *slog.Logger
 	interval  time.Duration
 }
 
 func NewOutboxWorker(
-	db *pgxpool.Pool,
-	publisher *natskit.Publisher,
+	store outbound.OutboxStore,
+	publisher Publisher,
 	log *slog.Logger,
 	interval time.Duration,
 ) *OutboxWorker {
-	return &OutboxWorker{db: db, publisher: publisher, log: log, interval: interval}
+	return &OutboxWorker{store: store, publisher: publisher, log: log, interval: interval}
 }
 
 func (w *OutboxWorker) Run(ctx context.Context) error {
 	if w.interval <= 0 {
-		return fmt.Errorf("outbox polling interval must be positive")
+		return errors.New("outbox polling interval must be positive")
 	}
 
 	ticker := time.NewTicker(w.interval)
@@ -49,51 +54,20 @@ func (w *OutboxWorker) Run(ctx context.Context) error {
 }
 
 func (w *OutboxWorker) publishPending(ctx context.Context) error {
-	rows, err := w.db.Query(ctx, `
-		SELECT id, subject, payload
-		FROM outbox_events
-		WHERE published_at IS NULL
-		ORDER BY created_at, id
-		LIMIT 100`)
+	events, err := w.store.ListPending(ctx, outboxBatchSize)
 	if err != nil {
 		return fmt.Errorf("read outbox: %w", err)
-	}
-
-	type event struct {
-		id      string
-		subject string
-		payload []byte
-	}
-
-	var events []event
-	for rows.Next() {
-		var e event
-		if err := rows.Scan(&e.id, &e.subject, &e.payload); err != nil {
-			rows.Close()
-			return fmt.Errorf("scan outbox: %w", err)
-		}
-		events = append(events, e)
-	}
-
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return fmt.Errorf("iterate outbox: %w", err)
 	}
 
 	for _, e := range events {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := w.publisher.PublishWithID(ctx, e.subject, e.payload, e.id); err != nil {
-			return fmt.Errorf("publish outbox %s: %w", e.id, err)
+		if err := w.publisher.PublishWithID(ctx, e.Subject, e.Payload, e.ID); err != nil {
+			return fmt.Errorf("publish outbox %s: %w", e.ID, err)
 		}
-		if _, err := w.db.Exec(ctx, `
-			UPDATE outbox_events
-			SET published_at = now()
-			WHERE id = $1 AND published_at IS NULL`, e.id,
-		); err != nil {
-			return fmt.Errorf("mark outbox %s published: %w", e.id, err)
+		if err := w.store.MarkPublished(ctx, e.ID); err != nil {
+			return fmt.Errorf("mark outbox %s published: %w", e.ID, err)
 		}
 	}
 	return nil

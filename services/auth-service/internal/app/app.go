@@ -75,7 +75,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 
 	return &App{
 		server:     server,
-		worker:     natsoutbound.NewOutboxWorker(pool, natskit.NewPublisher(natsClient.JS), log, cfg.NATS.OutboxInterval),
+		worker:     natsoutbound.NewOutboxWorker(postgres.NewOutboxRepository(queries), natskit.NewPublisher(natsClient.JS), log, cfg.NATS.OutboxInterval),
 		natsClient: natsClient,
 		closeDB:    pool.Close,
 		done:       make(chan struct{}),

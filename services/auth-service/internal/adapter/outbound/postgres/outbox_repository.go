@@ -43,3 +43,27 @@ func (r *OutboxRepository) SaveUserCreated(ctx context.Context, user auth.User) 
 	}
 	return nil
 }
+
+func (r *OutboxRepository) ListPending(ctx context.Context, limit int32) ([]outbound.OutboxEvent, error) {
+	rows, err := r.q.ListPendingOutboxEvents(ctx, limit)
+	if err != nil {
+		return nil, errkit.Wrap(outbound.ErrPersistence, "list pending outbox events", err)
+	}
+
+	events := make([]outbound.OutboxEvent, 0, len(rows))
+	for _, row := range rows {
+		events = append(events, outbound.OutboxEvent{
+			ID:      row.ID,
+			Subject: row.Subject,
+			Payload: row.Payload,
+		})
+	}
+	return events, nil
+}
+
+func (r *OutboxRepository) MarkPublished(ctx context.Context, id string) error {
+	if err := r.q.MarkOutboxEventPublished(ctx, id); err != nil {
+		return errkit.Wrap(outbound.ErrPersistence, "mark outbox event published", err)
+	}
+	return nil
+}
