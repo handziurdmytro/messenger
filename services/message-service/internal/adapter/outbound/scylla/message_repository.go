@@ -18,7 +18,7 @@ import (
 
 var (
 	ErrPersistence  = errors.New("scylla persistence error")
-	ErrNotFound     = errors.New("message not found")
+	ErrNotFound     = usecase.ErrMessageNotFound
 	ErrConflict     = errors.New("message ID conflict")
 	ErrInvalidQuery = errors.New("invalid history query")
 )
