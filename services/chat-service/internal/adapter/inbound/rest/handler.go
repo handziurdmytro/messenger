@@ -99,7 +99,7 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toChatResponse(c))
+	writeJSON(w, toChatResponse(c))
 }
 
 func (h *Handler) GetChat(w http.ResponseWriter, r *http.Request) {
@@ -121,7 +121,7 @@ func (h *Handler) GetChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toChatResponse(c))
+	writeJSON(w, toChatResponse(c))
 }
 
 func (h *Handler) ListChats(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +151,38 @@ func (h *Handler) ListChats(w http.ResponseWriter, r *http.Request) {
 	for _, c := range list.Chats {
 		result = append(result, toChatResponse(c))
 	}
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, result)
+}
+
+type participantResponse struct {
+	UserID chat.UserID `json:"user_id"`
+}
+
+func (h *Handler) ListParticipants(w http.ResponseWriter, r *http.Request) {
+	userID, err := authenticatedUser(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	chatID, err := chat.ParseID(r.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chat ID")
+		return
+	}
+
+	c, err := h.getChat.Execute(r.Context(), chatID, userID)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	participants := c.Participants()
+	result := make([]participantResponse, 0, len(participants))
+	for _, p := range participants {
+		result = append(result, participantResponse{UserID: p})
+	}
+	writeJSON(w, result)
 }
 
 func authenticatedUser(r *http.Request) (chat.UserID, error) {
@@ -174,8 +205,8 @@ func (h *Handler) handleError(w http.ResponseWriter, r *http.Request, err error)
 	}
 }
 
-func writeJSON(w http.ResponseWriter, status int, value any) {
+func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
+	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(value)
 }
