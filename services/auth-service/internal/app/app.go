@@ -9,7 +9,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/handziurdmytro/messenger/auth-service/internal/adapter/inbound/rest"
-	natsoutbound "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/nats"
 	"github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/postgres"
 	db "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/auth-service/internal/config"
@@ -21,7 +20,7 @@ import (
 
 type App struct {
 	server     *rest.Server
-	worker     *natsoutbound.OutboxWorker
+	worker     *natskit.OutboxRelay
 	natsClient *natskit.Client
 	closeDB    func()
 	done       chan struct{}
@@ -81,7 +80,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 
 	return &App{
 		server:     server,
-		worker:     natsoutbound.NewOutboxWorker(postgres.NewOutboxRepository(queries), natskit.NewPublisher(natsClient.JS), log, cfg.NATS.OutboxInterval),
+		worker:     natskit.NewOutboxRelay(postgres.NewOutboxRepository(queries), natskit.NewPublisher(natsClient.JS), log, cfg.NATS.OutboxInterval),
 		natsClient: natsClient,
 		closeDB:    pool.Close,
 		done:       make(chan struct{}),

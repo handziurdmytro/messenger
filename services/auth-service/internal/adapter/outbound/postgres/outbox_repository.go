@@ -10,6 +10,7 @@ import (
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
 	contract "github.com/handziurdmytro/messenger/pkg/contracts/user"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
+	"github.com/handziurdmytro/messenger/pkg/natskit"
 )
 
 type OutboxRepository struct {
@@ -61,15 +62,15 @@ func (r *OutboxRepository) save(ctx context.Context, id, subject string, event a
 	return nil
 }
 
-func (r *OutboxRepository) ListPending(ctx context.Context, limit int32) ([]outbound.OutboxEvent, error) {
+func (r *OutboxRepository) ListPending(ctx context.Context, limit int32) ([]natskit.OutboxMessage, error) {
 	rows, err := r.q.ListPendingOutboxEvents(ctx, limit)
 	if err != nil {
 		return nil, errkit.Wrap(outbound.ErrPersistence, "list pending outbox events", err)
 	}
 
-	events := make([]outbound.OutboxEvent, 0, len(rows))
+	events := make([]natskit.OutboxMessage, 0, len(rows))
 	for _, row := range rows {
-		events = append(events, outbound.OutboxEvent{
+		events = append(events, natskit.OutboxMessage{
 			ID:      row.ID,
 			Subject: row.Subject,
 			Payload: row.Payload,
