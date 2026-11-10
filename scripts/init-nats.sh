@@ -8,7 +8,7 @@ until nats --server="$NATS_URL" server check jetstream >/dev/null 2>&1; do
 done
 
 nats --server="$NATS_URL" stream add USERS \
-  --subjects="user.created,user.created.dlq,user.deleted,user.deleted.dlq" \
+  --subjects="user.created,user.created.dlq,user.deleted,user.deleted.dlq,user.blocked,user.unblocked,chat.user.blocks.dlq" \
   --storage=file \
   --retention=limits \
   --discard=old \
@@ -16,7 +16,7 @@ nats --server="$NATS_URL" stream add USERS \
   --replicas=1 \
   --defaults >/dev/null 2>&1 || \
 nats --server="$NATS_URL" stream edit USERS \
-  --subjects="user.created,user.created.dlq,user.deleted,user.deleted.dlq" --force >/dev/null
+  --subjects="user.created,user.created.dlq,user.deleted,user.deleted.dlq,user.blocked,user.unblocked,chat.user.blocks.dlq" --force >/dev/null
 
 nats --server="$NATS_URL" stream add MESSAGES \
   --subjects="messages.send,messages.created,chat.messages.created.dlq,message.messages.send.dlq" \
@@ -40,6 +40,16 @@ nats --server="$NATS_URL" consumer add USERS user-created \
 
 nats --server="$NATS_URL" consumer add USERS user-deleted \
   --filter="user.deleted" \
+  --ack=explicit \
+  --pull \
+  --deliver=all \
+  --max-deliver=-1 \
+  --wait=30s \
+  --defaults >/dev/null 2>&1 || true
+
+nats --server="$NATS_URL" consumer add USERS chat-user-blocks \
+  --filter="user.blocked" \
+  --filter="user.unblocked" \
   --ack=explicit \
   --pull \
   --deliver=all \
