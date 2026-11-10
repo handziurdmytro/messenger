@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
-	"github.com/handziurdmytro/messenger/user-service/internal/usecase"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
+	"github.com/handziurdmytro/messenger/user-service/internal/usecase"
 )
 
 func TestServer_Routes(t *testing.T) {

@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 	"github.com/stretchr/testify/require"
+
+	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 )
 
 func TestNew(t *testing.T) {

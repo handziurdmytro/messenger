@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/handziurdmytro/messenger/pkg/errkit"
 	"github.com/handziurdmytro/messenger/pkg/pgkit"
 	db "github.com/handziurdmytro/messenger/user-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 	"github.com/handziurdmytro/messenger/user-service/internal/port/outbound"
-	"github.com/jackc/pgx/v5"
 )
 
 const usersEmailUniqueConstraint = "users_email_unique"
@@ -89,7 +91,6 @@ func (r *UserRepository) Update(ctx context.Context, u user.User) error {
 	rowsAffected, err := r.q.UpdateUser(ctx, db.UpdateUserParams{
 		DisplayName: u.DisplayName(), AvatarUrl: u.AvatarURL(), UpdatedAt: u.UpdatedAt(), ID: u.ID().String(),
 	})
-
 	if err != nil {
 		return errkit.Wrap(outbound.ErrPersistence, "update user", err)
 	}
@@ -102,6 +103,10 @@ func (r *UserRepository) Update(ctx context.Context, u user.User) error {
 }
 
 func (r *UserRepository) Search(ctx context.Context, query string, limit int) ([]user.User, error) {
+	if limit <= 0 || limit > math.MaxInt32 {
+		return nil, fmt.Errorf("search users: invalid limit %d", limit)
+	}
+
 	rows, err := r.q.SearchUsers(ctx, db.SearchUsersParams{Query: query, LimitCount: int32(limit)})
 	if err != nil {
 		return nil, errkit.Wrap(outbound.ErrPersistence, "search users", err)

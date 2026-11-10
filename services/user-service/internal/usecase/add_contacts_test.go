@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/contact"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
 	"github.com/handziurdmytro/messenger/user-service/internal/port/outbound"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAddContactUseCase_Execute(t *testing.T) {

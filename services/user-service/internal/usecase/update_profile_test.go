@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
-	"github.com/handziurdmytro/messenger/user-service/internal/port/outbound"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
+	"github.com/handziurdmytro/messenger/user-service/internal/port/outbound"
 )
 
 func TestUpdateProfileUseCase_Execute(t *testing.T) {

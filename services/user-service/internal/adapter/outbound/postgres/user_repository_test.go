@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/handziurdmytro/messenger/pkg/pgkit/pgtest"
 	db "github.com/handziurdmytro/messenger/user-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
-	"github.com/stretchr/testify/require"
 )
 
 var testCreatedAt = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
