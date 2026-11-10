@@ -28,6 +28,10 @@ func NewServer(
 	mux.HandleFunc("GET /chats/{id}", handler.GetChat)
 	mux.HandleFunc("DELETE /chats/{id}", handler.DeleteChat)
 	mux.HandleFunc("GET /chats/{id}/participants", handler.ListParticipants)
+	mux.HandleFunc("POST /chats/groups", handler.CreateGroup)
+	mux.HandleFunc("PATCH /chats/{id}", handler.RenameGroup)
+	mux.HandleFunc("POST /chats/{id}/participants", handler.AddParticipants)
+	mux.HandleFunc("DELETE /chats/{id}/participants/{user_id}", handler.RemoveParticipant)
 	mux.HandleFunc("GET /chats", handler.ListChats)
 
 	if wsHandler != nil {

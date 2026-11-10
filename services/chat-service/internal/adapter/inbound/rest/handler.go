@@ -29,26 +29,40 @@ type DeleteChatUseCase interface {
 	Execute(ctx context.Context, chatID chat.ID, userID chat.UserID) error
 }
 
+type CreateGroupUseCase interface {
+	Execute(ctx context.Context, in usecase.CreateGroupInput) (chat.Chat, error)
+}
+
+type UpdateGroupUseCase interface {
+	Execute(ctx context.Context, chatID chat.ID, by chat.UserID, change usecase.GroupChange) (chat.Chat, error)
+}
+
 type Services struct {
-	CreateChat CreateChatUseCase
-	GetChat    GetChatUseCase
-	ListChats  ListChatsUseCase
-	DeleteChat DeleteChatUseCase
+	CreateChat  CreateChatUseCase
+	GetChat     GetChatUseCase
+	ListChats   ListChatsUseCase
+	DeleteChat  DeleteChatUseCase
+	CreateGroup CreateGroupUseCase
+	UpdateGroup UpdateGroupUseCase
 }
 
 type Handler struct {
-	createChat CreateChatUseCase
-	getChat    GetChatUseCase
-	listChats  ListChatsUseCase
-	deleteChat DeleteChatUseCase
+	createChat  CreateChatUseCase
+	getChat     GetChatUseCase
+	listChats   ListChatsUseCase
+	deleteChat  DeleteChatUseCase
+	createGroup CreateGroupUseCase
+	updateGroup UpdateGroupUseCase
 }
 
 func NewHandler(services Services) *Handler {
 	return &Handler{
-		createChat: services.CreateChat,
-		getChat:    services.GetChat,
-		listChats:  services.ListChats,
-		deleteChat: services.DeleteChat,
+		createChat:  services.CreateChat,
+		getChat:     services.GetChat,
+		listChats:   services.ListChats,
+		deleteChat:  services.DeleteChat,
+		createGroup: services.CreateGroup,
+		updateGroup: services.UpdateGroup,
 	}
 }
 
@@ -59,6 +73,8 @@ type createChatRequest struct {
 type chatResponse struct {
 	ID           chat.ID       `json:"id"`
 	Type         chat.Type     `json:"type"`
+	Title        string        `json:"title,omitempty"`
+	OwnerID      chat.UserID   `json:"owner_id,omitempty"`
 	Participants []chat.UserID `json:"participants"`
 	CreatedAt    string        `json:"created_at"`
 }
@@ -67,6 +83,8 @@ func toChatResponse(c chat.Chat) chatResponse {
 	return chatResponse{
 		ID:           c.ID(),
 		Type:         c.Type(),
+		Title:        c.Title(),
+		OwnerID:      c.Owner(),
 		Participants: c.Participants(),
 		CreatedAt:    c.CreatedAt().Format(time.RFC3339Nano),
 	}
@@ -79,17 +97,8 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 4096)
-
 	var req createChatRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -184,6 +193,7 @@ func (h *Handler) DeleteChat(w http.ResponseWriter, r *http.Request) {
 
 type participantResponse struct {
 	UserID chat.UserID `json:"user_id"`
+	Role   string      `json:"role"`
 }
 
 func (h *Handler) ListParticipants(w http.ResponseWriter, r *http.Request) {
@@ -208,7 +218,11 @@ func (h *Handler) ListParticipants(w http.ResponseWriter, r *http.Request) {
 	participants := c.Participants()
 	result := make([]participantResponse, 0, len(participants))
 	for _, p := range participants {
-		result = append(result, participantResponse{UserID: p})
+		role := "member"
+		if c.Type() == chat.TypeGroup && p == c.Owner() {
+			role = "owner"
+		}
+		result = append(result, participantResponse{UserID: p, Role: role})
 	}
 	writeJSON(w, result)
 }
@@ -229,12 +243,37 @@ func (h *Handler) handleError(w http.ResponseWriter, r *http.Request, err error)
 		errors.Is(err, chat.ErrInvalidUserID),
 		errors.Is(err, chat.ErrInvalidChatID):
 		writeError(w, http.StatusBadRequest, "invalid chat request")
-	case errors.Is(err, chat.ErrUnsupportedChatType):
+	case errors.Is(err, chat.ErrInvalidTitle),
+		errors.Is(err, chat.ErrTooManyParticipants),
+		errors.Is(err, chat.ErrCannotRemoveOwner):
+		writeError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, chat.ErrNotOwner):
+		writeError(w, http.StatusForbidden, err.Error())
+	case errors.Is(err, chat.ErrNotParticipant):
+		writeError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, chat.ErrAlreadyParticipant):
+		writeError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, chat.ErrUnsupportedChatType), errors.Is(err, chat.ErrNotGroup):
 		writeError(w, http.StatusUnprocessableEntity, "unsupported chat type")
 	default:
 		logger.FromContext(r.Context()).Error("chat request failed", logger.KeyError, err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
 	}
+}
+
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(dst); err != nil {
+		return err
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return errors.New("unexpected trailing data")
+	}
+	return nil
 }
 
 func writeJSON(w http.ResponseWriter, value any) {

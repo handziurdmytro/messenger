@@ -97,10 +97,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	httpServer := rest.NewServer(
 		cfg.Server.Port,
 		rest.Services{
-			CreateChat: createChatUC,
-			GetChat:    getChatUC,
-			ListChats:  usecase.NewListChats(chatRepo),
-			DeleteChat: usecase.NewDeleteChat(chatRepo),
+			CreateChat:  createChatUC,
+			GetChat:     getChatUC,
+			ListChats:   usecase.NewListChats(chatRepo),
+			DeleteChat:  usecase.NewDeleteChat(chatRepo),
+			CreateGroup: usecase.NewCreateGroup(chatRepo),
+			UpdateGroup: usecase.NewUpdateGroup(chatRepo),
 		},
 		wsHandler,
 		logger,
