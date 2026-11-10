@@ -31,9 +31,18 @@ func (uc *DeleteChatUseCase) Execute(ctx context.Context, chatID chat.ID, userID
 		return ErrForbidden
 	}
 
-	if c.Type() != chat.TypePrivate {
+	switch c.Type() {
+	case chat.TypePrivate:
+		return uc.repo.Delete(ctx, chatID)
+	case chat.TypeGroup:
+		if err := c.Leave(userID); err != nil {
+			return err
+		}
+		if c.IsEmpty() {
+			return uc.repo.Delete(ctx, chatID)
+		}
+		return uc.repo.Update(ctx, c)
+	default:
 		return chat.ErrUnsupportedChatType
 	}
-
-	return uc.repo.Delete(ctx, chatID)
 }
