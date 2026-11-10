@@ -145,6 +145,23 @@ func toDomain(id uuid.UUID, chatType string, userIDs []uuid.UUID, createdAt time
 	return c, nil
 }
 
+func (r *ChatRepository) Delete(ctx context.Context, id chat.ID) error {
+	parsedID, err := uuid.Parse(string(id))
+	if err != nil {
+		return chat.ErrInvalidChatID
+	}
+
+	rows, err := r.q.DeleteChat(ctx, parsedID)
+	if err != nil {
+		return errkit.Wrap(usecase.ErrPersistence, "postgres: delete chat", err)
+	}
+	if rows == 0 {
+		return usecase.ErrChatNotFound
+	}
+
+	return nil
+}
+
 func findError(operation string, err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return usecase.ErrChatNotFound

@@ -78,6 +78,28 @@ func TestChatRepository_ListByUserPagination(t *testing.T) {
 	requireSameChat(t, created[0], second[0])
 }
 
+func TestChatRepository_Delete(t *testing.T) {
+	repo, pool := newTestChatRepository(t)
+	ctx := context.Background()
+	c := newTestPrivateChat(t)
+	require.NoError(t, repo.Save(ctx, c))
+
+	require.NoError(t, repo.Delete(ctx, c.ID()))
+
+	_, err := repo.FindByID(ctx, c.ID())
+	require.ErrorIs(t, err, usecase.ErrChatNotFound)
+
+	var count int
+	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM participants WHERE chat_id = $1", string(c.ID())).Scan(&count))
+	require.Zero(t, count)
+
+	require.ErrorIs(t, repo.Delete(ctx, c.ID()), usecase.ErrChatNotFound)
+
+	recreated, err := chat.NewPrivate(c.Participants()[0], c.Participants()[1])
+	require.NoError(t, err)
+	require.NoError(t, repo.Save(ctx, recreated))
+}
+
 func requireSameChat(t *testing.T, expected, actual chat.Chat) {
 	t.Helper()
 

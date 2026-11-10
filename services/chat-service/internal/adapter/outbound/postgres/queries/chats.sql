@@ -32,3 +32,7 @@ WHERE EXISTS (SELECT 1
 GROUP BY c.id
 ORDER BY c.created_at DESC, c.id DESC
 LIMIT sqlc.arg(limit_count);
+
+-- name: DeleteChat :execrows
+DELETE FROM chats
+WHERE id = sqlc.arg(id);
