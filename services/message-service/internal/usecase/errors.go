@@ -17,4 +17,5 @@ var (
 	ErrUnsupportedMIME  = errors.New("unsupported MIME type")
 	ErrInvalidMessageID = errors.New("invalid message ID")
 	ErrMessageNotFound  = errors.New("message not found")
+	ErrForbidden        = errors.New("access denied")
 )
