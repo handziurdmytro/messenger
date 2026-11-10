@@ -19,7 +19,7 @@ nats --server="$NATS_URL" stream edit USERS \
   --subjects="user.created,user.created.dlq,user.deleted,user.deleted.dlq,user.blocked,user.unblocked,chat.user.blocks.dlq" --force >/dev/null
 
 nats --server="$NATS_URL" stream add MESSAGES \
-  --subjects="messages.send,messages.created,messages.edited,messages.deleted,chat.messages.created.dlq,chat.messages.updates.dlq,message.messages.send.dlq" \
+  --subjects="messages.send,messages.created,messages.edited,messages.deleted,messages.read,chat.messages.created.dlq,chat.messages.updates.dlq,message.messages.send.dlq" \
   --storage=file \
   --retention=limits \
   --discard=old \
@@ -27,7 +27,7 @@ nats --server="$NATS_URL" stream add MESSAGES \
   --replicas=1 \
   --defaults >/dev/null 2>&1 || \
 nats --server="$NATS_URL" stream edit MESSAGES \
-  --subjects="messages.send,messages.created,messages.edited,messages.deleted,chat.messages.created.dlq,chat.messages.updates.dlq,message.messages.send.dlq" --force >/dev/null
+  --subjects="messages.send,messages.created,messages.edited,messages.deleted,messages.read,chat.messages.created.dlq,chat.messages.updates.dlq,message.messages.send.dlq" --force >/dev/null
 
 nats --server="$NATS_URL" consumer add USERS user-created \
   --filter="user.created" \
@@ -77,9 +77,15 @@ nats --server="$NATS_URL" consumer add MESSAGES chat-message-created \
 nats --server="$NATS_URL" consumer add MESSAGES chat-message-updates \
   --filter="messages.edited" \
   --filter="messages.deleted" \
+  --filter="messages.read" \
   --ack=explicit \
   --pull \
   --deliver=all \
   --max-deliver=-1 \
   --wait=30s \
-  --defaults >/dev/null 2>&1 || true
+  --defaults >/dev/null 2>&1 || \
+nats --server="$NATS_URL" consumer edit MESSAGES chat-message-updates \
+  --filter="messages.edited" \
+  --filter="messages.deleted" \
+  --filter="messages.read" \
+  --force >/dev/null
