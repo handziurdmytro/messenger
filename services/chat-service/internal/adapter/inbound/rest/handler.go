@@ -22,7 +22,7 @@ type GetChatUseCase interface {
 }
 
 type ListChatsUseCase interface {
-	Execute(ctx context.Context, userID chat.UserID) ([]chat.Chat, error)
+	Execute(ctx context.Context, userID chat.UserID, limit int, before *usecase.ChatCursor) (usecase.ChatList, error)
 }
 
 type Services struct {
@@ -131,14 +131,24 @@ func (h *Handler) ListChats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chats, err := h.listChats.Execute(r.Context(), userID)
+	limit, before, err := parseChatPage(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	list, err := h.listChats.Execute(r.Context(), userID, limit, before)
 	if err != nil {
 		h.handleError(w, r, err)
 		return
 	}
 
-	result := make([]chatResponse, 0, len(chats))
-	for _, c := range chats {
+	if list.Next != nil {
+		w.Header().Set(headerNextCursor, encodeCursor(*list.Next))
+	}
+
+	result := make([]chatResponse, 0, len(list.Chats))
+	for _, c := range list.Chats {
 		result = append(result, toChatResponse(c))
 	}
 	writeJSON(w, http.StatusOK, result)

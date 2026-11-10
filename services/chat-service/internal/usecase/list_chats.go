@@ -30,9 +30,33 @@ type ListChatsUseCase struct{ repo ChatLister }
 
 func NewListChats(repo ChatLister) *ListChatsUseCase { return &ListChatsUseCase{repo: repo} }
 
-func (uc *ListChatsUseCase) Execute(ctx context.Context, id chat.UserID) ([]chat.Chat, error) {
+type ChatList struct {
+	Chats []chat.Chat
+	Next  *ChatCursor
+}
+
+func (uc *ListChatsUseCase) Execute(ctx context.Context, id chat.UserID, limit int, before *ChatCursor) (ChatList, error) {
 	if _, err := chat.ParseUserID(string(id)); err != nil {
-		return nil, err
+		return ChatList{}, err
 	}
-	return uc.repo.ListByUser(ctx, id, ChatPage{Limit: MaxChatsLimit})
+
+	if limit <= 0 || limit > MaxChatsLimit {
+		limit = DefaultChatsLimit
+	}
+
+	chats, err := uc.repo.ListByUser(ctx, id, ChatPage{Limit: limit + 1, Before: before})
+	if err != nil {
+		return ChatList{}, err
+	}
+
+	if len(chats) <= limit {
+		return ChatList{Chats: chats}, nil
+	}
+
+	chats = chats[:limit]
+	last := chats[len(chats)-1]
+	return ChatList{
+		Chats: chats,
+		Next:  &ChatCursor{CreatedAt: last.CreatedAt(), ID: last.ID()},
+	}, nil
 }
