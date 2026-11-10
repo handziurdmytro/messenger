@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+type Block struct {
+	UserID    string    `json:"user_id"`
+	BlockedID string    `json:"blocked_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Contact struct {
 	UserID    string    `json:"user_id"`
 	ContactID string    `json:"contact_id"`
