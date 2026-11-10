@@ -37,14 +37,15 @@ type PostgresConfig struct {
 }
 
 type NATSConfig struct {
-	URLs           []string      `env:"URLS,required,notEmpty" envSeparator:","`
-	Name           string        `env:"NAME" envDefault:"user-service"`
-	ConnectTimeout time.Duration `env:"CONNECT_TIMEOUT" envDefault:"5s"`
-	ReconnectWait  time.Duration `env:"RECONNECT_WAIT" envDefault:"2s"`
-	MaxReconnects  int           `env:"MAX_RECONNECTS" envDefault:"-1"`
-	DrainTimeout   time.Duration `env:"DRAIN_TIMEOUT" envDefault:"10s"`
-	Stream         string        `env:"STREAM" envDefault:"USERS"`
-	Consumer       string        `env:"CONSUMER" envDefault:"user-created"`
+	URLs            []string      `env:"URLS,required,notEmpty" envSeparator:","`
+	Name            string        `env:"NAME" envDefault:"user-service"`
+	ConnectTimeout  time.Duration `env:"CONNECT_TIMEOUT" envDefault:"5s"`
+	ReconnectWait   time.Duration `env:"RECONNECT_WAIT" envDefault:"2s"`
+	MaxReconnects   int           `env:"MAX_RECONNECTS" envDefault:"-1"`
+	DrainTimeout    time.Duration `env:"DRAIN_TIMEOUT" envDefault:"10s"`
+	Stream          string        `env:"STREAM" envDefault:"USERS"`
+	Consumer        string        `env:"CONSUMER" envDefault:"user-created"`
+	DeletedConsumer string        `env:"DELETED_CONSUMER" envDefault:"user-deleted"`
 }
 
 type LogConfig struct {
@@ -87,7 +88,7 @@ func (c Config) Validate() error {
 		)
 	}
 
-	if len(c.NATS.URLs) == 0 || c.NATS.Stream == "" || c.NATS.Consumer == "" {
+	if len(c.NATS.URLs) == 0 || c.NATS.Stream == "" || c.NATS.Consumer == "" || c.NATS.DeletedConsumer == "" {
 		return fmt.Errorf("invalid NATS configuration")
 	}
 

@@ -22,6 +22,7 @@ import (
 type App struct {
 	server     *rest.Server
 	consumer   *natsinbound.UserCreatedConsumer
+	deleted    *natsinbound.UserDeletedConsumer
 	natsClient *natskit.Client
 	closeDB    func()
 	done       chan struct{}
@@ -54,6 +55,13 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		return nil, fmt.Errorf("get user-created consumer: %w", err)
 	}
 
+	deletedConsumer, err := natsClient.JS.Consumer(ctx, cfg.NATS.Stream, cfg.NATS.DeletedConsumer)
+	if err != nil {
+		natsClient.Close()
+		pool.Close()
+		return nil, fmt.Errorf("get user-deleted consumer: %w", err)
+	}
+
 	queries := db.New(pool)
 	users := postgres.NewUserRepository(queries)
 	contacts := postgres.NewContactRepository(queries)
@@ -71,6 +79,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	return &App{
 		server:     server,
 		consumer:   natsinbound.NewUserCreatedConsumer(consumer, natsClient.JS, users, log),
+		deleted:    natsinbound.NewUserDeletedConsumer(deletedConsumer, natsClient.JS, usecase.NewDeleteUserUseCase(users), log),
 		natsClient: natsClient,
 		closeDB:    pool.Close,
 		done:       make(chan struct{}),
@@ -89,6 +98,9 @@ func (a *App) Start(ctx context.Context) error {
 	})
 	g.Go(func() error {
 		return a.consumer.Run(gCtx)
+	})
+	g.Go(func() error {
+		return a.deleted.Run(gCtx)
 	})
 	return g.Wait()
 }
