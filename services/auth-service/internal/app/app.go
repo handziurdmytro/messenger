@@ -73,6 +73,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 			Logout:         usecase.NewLogoutUseCase(tokens),
 			LogoutAll:      usecase.NewLogoutAllUseCase(tokens),
 			ChangePassword: usecase.NewChangePasswordUseCase(users, transactor),
+			DeleteAccount:  usecase.NewDeleteAccountUseCase(users, transactor),
 			Token:          tokenSvc,
 		},
 		log,

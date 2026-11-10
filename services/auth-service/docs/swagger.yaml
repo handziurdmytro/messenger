@@ -7,6 +7,11 @@ definitions:
       new_password:
         type: string
     type: object
+  rest.deleteAccountRequest:
+    properties:
+      password:
+        type: string
+    type: object
   rest.errorResponse:
     properties:
       error:
@@ -55,6 +60,47 @@ paths:
           schema:
             $ref: '#/definitions/rest.errorResponse'
       summary: Get public keys (JWKS)
+      tags:
+      - auth
+  /account:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes the authenticated user after password confirmation and
+        publishes user.deleted
+      parameters:
+      - description: Password confirmation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.deleteAccountRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request data
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Missing or invalid token
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "403":
+          description: Password is incorrect
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete account
       tags:
       - auth
   /login:

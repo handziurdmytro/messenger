@@ -32,6 +32,7 @@ func NewServer(
 	mux.HandleFunc("POST /logout", h.Logout)
 	mux.HandleFunc("POST /logout-all", h.requireAuth(h.LogoutAll))
 	mux.HandleFunc("PATCH /password", h.requireAuth(h.ChangePassword))
+	mux.HandleFunc("DELETE /account", h.requireAuth(h.DeleteAccount))
 	mux.HandleFunc("GET /.well-known/jwks.pem", h.JWKS)
 	mux.HandleFunc("GET /swagger/", httpSwagger.Handler(
 		httpSwagger.URL("/api/auth/swagger/doc.json"),

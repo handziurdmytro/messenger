@@ -44,6 +44,10 @@ type ChangePasswordService interface {
 	Execute(context.Context, usecase.ChangePasswordInput) error
 }
 
+type DeleteAccountService interface {
+	Execute(context.Context, usecase.DeleteAccountInput) error
+}
+
 type Services struct {
 	Register       RegisterService
 	Login          LoginService
@@ -51,6 +55,7 @@ type Services struct {
 	Logout         LogoutService
 	LogoutAll      LogoutAllService
 	ChangePassword ChangePasswordService
+	DeleteAccount  DeleteAccountService
 	Token          TokenService
 }
 
@@ -61,6 +66,7 @@ type Handler struct {
 	logout         LogoutService
 	logoutAll      LogoutAllService
 	changePassword ChangePasswordService
+	deleteAccount  DeleteAccountService
 	tokenSvc       TokenService
 }
 
@@ -72,6 +78,7 @@ func NewHandler(services Services) *Handler {
 		logout:         services.Logout,
 		logoutAll:      services.LogoutAll,
 		changePassword: services.ChangePassword,
+		deleteAccount:  services.DeleteAccount,
 		tokenSvc:       services.Token,
 	}
 }
