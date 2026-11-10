@@ -1,5 +1,12 @@
 basePath: /api/auth
 definitions:
+  rest.changePasswordRequest:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        type: string
+    type: object
   rest.errorResponse:
     properties:
       error:
@@ -127,6 +134,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Logout from all devices
+      tags:
+      - auth
+  /password:
+    patch:
+      consumes:
+      - application/json
+      description: Changes the password of the authenticated user and revokes all
+        refresh tokens
+      parameters:
+      - description: Current and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.changePasswordRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request data or new password rejected
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "401":
+          description: Missing or invalid token
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "403":
+          description: Current password is incorrect
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/rest.errorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change password
       tags:
       - auth
   /refresh:

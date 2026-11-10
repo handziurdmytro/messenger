@@ -40,32 +40,39 @@ type LogoutAllService interface {
 	Execute(context.Context, auth.UserID) error
 }
 
+type ChangePasswordService interface {
+	Execute(context.Context, usecase.ChangePasswordInput) error
+}
+
 type Services struct {
-	Register  RegisterService
-	Login     LoginService
-	Refresh   RefreshService
-	Logout    LogoutService
-	LogoutAll LogoutAllService
-	Token     TokenService
+	Register       RegisterService
+	Login          LoginService
+	Refresh        RefreshService
+	Logout         LogoutService
+	LogoutAll      LogoutAllService
+	ChangePassword ChangePasswordService
+	Token          TokenService
 }
 
 type Handler struct {
-	register  RegisterService
-	login     LoginService
-	refresh   RefreshService
-	logout    LogoutService
-	logoutAll LogoutAllService
-	tokenSvc  TokenService
+	register       RegisterService
+	login          LoginService
+	refresh        RefreshService
+	logout         LogoutService
+	logoutAll      LogoutAllService
+	changePassword ChangePasswordService
+	tokenSvc       TokenService
 }
 
 func NewHandler(services Services) *Handler {
 	return &Handler{
-		register:  services.Register,
-		login:     services.Login,
-		refresh:   services.Refresh,
-		logout:    services.Logout,
-		logoutAll: services.LogoutAll,
-		tokenSvc:  services.Token,
+		register:       services.Register,
+		login:          services.Login,
+		refresh:        services.Refresh,
+		logout:         services.Logout,
+		logoutAll:      services.LogoutAll,
+		changePassword: services.ChangePassword,
+		tokenSvc:       services.Token,
 	}
 }
 

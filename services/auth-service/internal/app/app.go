@@ -67,12 +67,13 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	server := rest.NewServer(
 		cfg.Server.Port,
 		rest.Services{
-			Register:  usecase.NewRegisterUseCase(transactor, tokenSvc),
-			Login:     usecase.NewLoginUseCase(users, tokens, tokenSvc),
-			Refresh:   usecase.NewRefreshUseCase(users, tokens, transactor, tokenSvc),
-			Logout:    usecase.NewLogoutUseCase(tokens),
-			LogoutAll: usecase.NewLogoutAllUseCase(tokens),
-			Token:     tokenSvc,
+			Register:       usecase.NewRegisterUseCase(transactor, tokenSvc),
+			Login:          usecase.NewLoginUseCase(users, tokens, tokenSvc),
+			Refresh:        usecase.NewRefreshUseCase(users, tokens, transactor, tokenSvc),
+			Logout:         usecase.NewLogoutUseCase(tokens),
+			LogoutAll:      usecase.NewLogoutAllUseCase(tokens),
+			ChangePassword: usecase.NewChangePasswordUseCase(users, transactor),
+			Token:          tokenSvc,
 		},
 		log,
 	)
