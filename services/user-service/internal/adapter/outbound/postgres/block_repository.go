@@ -2,7 +2,13 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+
+	contract "github.com/handziurdmytro/messenger/pkg/contracts/user"
 
 	"github.com/handziurdmytro/messenger/pkg/errkit"
 	"github.com/handziurdmytro/messenger/pkg/pgkit"
@@ -26,10 +32,18 @@ func NewBlockRepository(q *db.Queries) *BlockRepository {
 }
 
 func (r *BlockRepository) Add(ctx context.Context, b block.Block) error {
-	err := r.q.AddBlock(ctx, db.AddBlockParams{
-		UserID:    b.UserID().String(),
-		BlockedID: b.BlockedID().String(),
-		CreatedAt: b.CreatedAt(),
+	payload, err := blockEventPayload(b.UserID(), b.BlockedID(), b.CreatedAt())
+	if err != nil {
+		return err
+	}
+
+	err = r.q.AddBlock(ctx, db.AddBlockParams{
+		EventID:      uuid.NewString(),
+		EventSubject: contract.SubjectBlocked,
+		EventPayload: payload,
+		UserID:       b.UserID().String(),
+		BlockedID:    b.BlockedID().String(),
+		CreatedAt:    b.CreatedAt(),
 	})
 	switch {
 	case err == nil:
@@ -44,9 +58,17 @@ func (r *BlockRepository) Add(ctx context.Context, b block.Block) error {
 }
 
 func (r *BlockRepository) Remove(ctx context.Context, userID, blockedID user.ID) error {
+	payload, err := blockEventPayload(userID, blockedID, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+
 	rows, err := r.q.RemoveBlock(ctx, db.RemoveBlockParams{
-		UserID:    userID.String(),
-		BlockedID: blockedID.String(),
+		EventID:      uuid.NewString(),
+		EventSubject: contract.SubjectUnblocked,
+		EventPayload: payload,
+		UserID:       userID.String(),
+		BlockedID:    blockedID.String(),
 	})
 	if err != nil {
 		return errkit.Wrap(outbound.ErrPersistence, "remove block", err)
@@ -96,4 +118,21 @@ func (r *BlockRepository) ExistsBetween(ctx context.Context, first, second user.
 	}
 
 	return exists, nil
+}
+
+func blockEventPayload(userID, blockedID user.ID, at time.Time) ([]byte, error) {
+	event := contract.BlockEvent{
+		UserID:     userID.String(),
+		BlockedID:  blockedID.String(),
+		OccurredAt: at,
+	}
+	if err := event.Validate(); err != nil {
+		return nil, err
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		return nil, errkit.Wrap(outbound.ErrPersistence, "marshal block event", err)
+	}
+	return data, nil
 }

@@ -1,15 +1,25 @@
 -- name: AddBlock :exec
 WITH removed_contacts AS (
     DELETE FROM contacts
-    WHERE (user_id = sqlc.arg(user_id) AND contact_id = sqlc.arg(blocked_id))
-       OR (user_id = sqlc.arg(blocked_id) AND contact_id = sqlc.arg(user_id)))
-INSERT INTO blocks (user_id, blocked_id, created_at)
-VALUES (sqlc.arg(user_id), sqlc.arg(blocked_id), sqlc.arg(created_at));
+    WHERE (contacts.user_id = sqlc.arg(user_id) AND contacts.contact_id = sqlc.arg(blocked_id))
+       OR (contacts.user_id = sqlc.arg(blocked_id) AND contacts.contact_id = sqlc.arg(user_id))),
+     inserted AS (
+         INSERT INTO blocks (user_id, blocked_id, created_at)
+         VALUES (sqlc.arg(user_id), sqlc.arg(blocked_id), sqlc.arg(created_at))
+         RETURNING blocks.user_id)
+INSERT INTO outbox_events (id, subject, payload)
+SELECT sqlc.arg(event_id), sqlc.arg(event_subject), sqlc.arg(event_payload)::bytea
+FROM inserted;
 
 -- name: RemoveBlock :execrows
-DELETE FROM blocks
-WHERE user_id = sqlc.arg(user_id)
-  AND blocked_id = sqlc.arg(blocked_id);
+WITH removed AS (
+    DELETE FROM blocks
+    WHERE blocks.user_id = sqlc.arg(user_id)
+      AND blocks.blocked_id = sqlc.arg(blocked_id)
+    RETURNING blocks.user_id)
+INSERT INTO outbox_events (id, subject, payload)
+SELECT sqlc.arg(event_id), sqlc.arg(event_subject), sqlc.arg(event_payload)::bytea
+FROM removed;
 
 -- name: ListBlockedUsers :many
 SELECT u.id,

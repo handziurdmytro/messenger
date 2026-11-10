@@ -13,20 +13,35 @@ import (
 const addBlock = `-- name: AddBlock :exec
 WITH removed_contacts AS (
     DELETE FROM contacts
-    WHERE (user_id = $1 AND contact_id = $2)
-       OR (user_id = $2 AND contact_id = $1))
-INSERT INTO blocks (user_id, blocked_id, created_at)
-VALUES ($1, $2, $3)
+    WHERE (contacts.user_id = $4 AND contacts.contact_id = $5)
+       OR (contacts.user_id = $5 AND contacts.contact_id = $4)),
+     inserted AS (
+         INSERT INTO blocks (user_id, blocked_id, created_at)
+         VALUES ($4, $5, $6)
+         RETURNING blocks.user_id)
+INSERT INTO outbox_events (id, subject, payload)
+SELECT $1, $2, $3::bytea
+FROM inserted
 `
 
 type AddBlockParams struct {
-	UserID    string    `json:"user_id"`
-	BlockedID string    `json:"blocked_id"`
-	CreatedAt time.Time `json:"created_at"`
+	EventID      string    `json:"event_id"`
+	EventSubject string    `json:"event_subject"`
+	EventPayload []byte    `json:"event_payload"`
+	UserID       string    `json:"user_id"`
+	BlockedID    string    `json:"blocked_id"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (q *Queries) AddBlock(ctx context.Context, arg AddBlockParams) error {
-	_, err := q.db.Exec(ctx, addBlock, arg.UserID, arg.BlockedID, arg.CreatedAt)
+	_, err := q.db.Exec(ctx, addBlock,
+		arg.EventID,
+		arg.EventSubject,
+		arg.EventPayload,
+		arg.UserID,
+		arg.BlockedID,
+		arg.CreatedAt,
+	)
 	return err
 }
 
@@ -99,18 +114,32 @@ func (q *Queries) ListBlockedUsers(ctx context.Context, arg ListBlockedUsersPara
 }
 
 const removeBlock = `-- name: RemoveBlock :execrows
-DELETE FROM blocks
-WHERE user_id = $1
-  AND blocked_id = $2
+WITH removed AS (
+    DELETE FROM blocks
+    WHERE blocks.user_id = $4
+      AND blocks.blocked_id = $5
+    RETURNING blocks.user_id)
+INSERT INTO outbox_events (id, subject, payload)
+SELECT $1, $2, $3::bytea
+FROM removed
 `
 
 type RemoveBlockParams struct {
-	UserID    string `json:"user_id"`
-	BlockedID string `json:"blocked_id"`
+	EventID      string `json:"event_id"`
+	EventSubject string `json:"event_subject"`
+	EventPayload []byte `json:"event_payload"`
+	UserID       string `json:"user_id"`
+	BlockedID    string `json:"blocked_id"`
 }
 
 func (q *Queries) RemoveBlock(ctx context.Context, arg RemoveBlockParams) (int64, error) {
-	result, err := q.db.Exec(ctx, removeBlock, arg.UserID, arg.BlockedID)
+	result, err := q.db.Exec(ctx, removeBlock,
+		arg.EventID,
+		arg.EventSubject,
+		arg.EventPayload,
+		arg.UserID,
+		arg.BlockedID,
+	)
 	if err != nil {
 		return 0, err
 	}
