@@ -21,3 +21,8 @@ VALUES ($1, $2, $3, $4);
 UPDATE users
 SET password_hash = sqlc.arg(password_hash)
 WHERE id = sqlc.arg(id);
+
+
+-- name: DeleteUser :execrows
+DELETE FROM users
+WHERE id = sqlc.arg(id);
