@@ -4,9 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/handziurdmytro/messenger/pkg/errkit"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/handziurdmytro/messenger/pkg/errkit"
 )
 
 type Client struct {
