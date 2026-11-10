@@ -166,16 +166,18 @@ FROM users
 WHERE deleted_at IS NULL
   AND (display_name ILIKE '%' || $1::text || '%'
     OR email ILIKE '%' || $1::text || '%')
-LIMIT $2
+ORDER BY display_name, id
+LIMIT $3 OFFSET $2
 `
 
 type SearchUsersParams struct {
-	Query      string `json:"query"`
-	LimitCount int32  `json:"limit_count"`
+	Query       string `json:"query"`
+	OffsetCount int32  `json:"offset_count"`
+	LimitCount  int32  `json:"limit_count"`
 }
 
 func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error) {
-	rows, err := q.db.Query(ctx, searchUsers, arg.Query, arg.LimitCount)
+	rows, err := q.db.Query(ctx, searchUsers, arg.Query, arg.OffsetCount, arg.LimitCount)
 	if err != nil {
 		return nil, err
 	}

@@ -10,5 +10,5 @@ import (
 type ContactRepository interface {
 	Add(ctx context.Context, c contact.Contact) error
 	Remove(ctx context.Context, userID, contactID user.ID) error
-	GetByUserID(ctx context.Context, userID user.ID) ([]user.User, error)
+	GetByUserID(ctx context.Context, userID user.ID, page Page) ([]user.User, error)
 }

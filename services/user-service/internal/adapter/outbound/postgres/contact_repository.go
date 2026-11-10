@@ -37,8 +37,17 @@ func (r *ContactRepository) Add(ctx context.Context, c contact.Contact) error {
 	return errkit.Wrap(outbound.ErrPersistence, "add contact", err)
 }
 
-func (r *ContactRepository) GetByUserID(ctx context.Context, userID user.ID) ([]user.User, error) {
-	rows, err := r.q.GetContactsByUserID(ctx, userID.String())
+func (r *ContactRepository) GetByUserID(ctx context.Context, userID user.ID, page outbound.Page) ([]user.User, error) {
+	limit, offset, err := pageBounds(page)
+	if err != nil {
+		return nil, fmt.Errorf("get contacts: %w", err)
+	}
+
+	rows, err := r.q.GetContactsByUserID(ctx, db.GetContactsByUserIDParams{
+		UserID:      userID.String(),
+		LimitCount:  limit,
+		OffsetCount: offset,
+	})
 	if err != nil {
 		return nil, errkit.Wrap(outbound.ErrPersistence, "get contacts", err)
 	}

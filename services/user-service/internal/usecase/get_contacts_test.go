@@ -28,7 +28,7 @@ func TestGetContactsUseCase_Execute(t *testing.T) {
 			want: []user.User{u},
 			setupMocks: func(contacts *MockContactRepository) {
 				contacts.EXPECT().
-					GetByUserID(mock.Anything, user.ID("owner-1")).
+					GetByUserID(mock.Anything, user.ID("owner-1"), outbound.Page{Limit: 100}).
 					Return([]user.User{u}, nil).
 					Once()
 			},
@@ -38,7 +38,7 @@ func TestGetContactsUseCase_Execute(t *testing.T) {
 			want: []user.User{},
 			setupMocks: func(contacts *MockContactRepository) {
 				contacts.EXPECT().
-					GetByUserID(mock.Anything, user.ID("owner-1")).
+					GetByUserID(mock.Anything, user.ID("owner-1"), outbound.Page{Limit: 100}).
 					Return([]user.User{}, nil).
 					Once()
 			},
@@ -48,7 +48,7 @@ func TestGetContactsUseCase_Execute(t *testing.T) {
 			wantErr: outbound.ErrPersistence,
 			setupMocks: func(contacts *MockContactRepository) {
 				contacts.EXPECT().
-					GetByUserID(mock.Anything, user.ID("owner-1")).
+					GetByUserID(mock.Anything, user.ID("owner-1"), outbound.Page{Limit: 100}).
 					Return(nil, outbound.ErrPersistence).
 					Once()
 			},

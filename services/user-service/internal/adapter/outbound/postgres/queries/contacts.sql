@@ -22,7 +22,8 @@ FROM users u
          INNER JOIN contacts c ON u.id = c.contact_id
 WHERE c.user_id = sqlc.arg(user_id)
   AND u.deleted_at IS NULL
-ORDER BY u.display_name ASC;
+ORDER BY u.display_name, u.id
+LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 
 -- name: RemoveContact :execrows
 DELETE FROM contacts

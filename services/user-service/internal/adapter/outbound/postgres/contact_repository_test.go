@@ -30,12 +30,12 @@ func TestContactRepository_Add(t *testing.T) {
 
 		require.NoError(t, contacts.Add(ctx, c))
 
-		ownerContacts, err := contacts.GetByUserID(ctx, owner.ID())
+		ownerContacts, err := contacts.GetByUserID(ctx, owner.ID(), outbound.Page{Limit: 100})
 		require.NoError(t, err)
 		require.Len(t, ownerContacts, 1)
 		requireSameUser(t, target, ownerContacts[0])
 
-		targetContacts, err := contacts.GetByUserID(ctx, target.ID())
+		targetContacts, err := contacts.GetByUserID(ctx, target.ID(), outbound.Page{Limit: 100})
 		require.NoError(t, err)
 		require.Len(t, targetContacts, 1)
 		requireSameUser(t, owner, targetContacts[0])
@@ -55,12 +55,12 @@ func TestContactRepository_Add(t *testing.T) {
 			contact.ErrAlreadyExists,
 		)
 
-		ownerContacts, err := contacts.GetByUserID(ctx, owner.ID())
+		ownerContacts, err := contacts.GetByUserID(ctx, owner.ID(), outbound.Page{Limit: 100})
 		require.NoError(t, err)
 		require.Len(t, ownerContacts, 1)
 		requireSameUser(t, target, ownerContacts[0])
 
-		targetContacts, err := contacts.GetByUserID(ctx, target.ID())
+		targetContacts, err := contacts.GetByUserID(ctx, target.ID(), outbound.Page{Limit: 100})
 		require.NoError(t, err)
 		require.Len(t, targetContacts, 1)
 		requireSameUser(t, owner, targetContacts[0])
@@ -72,7 +72,7 @@ func TestContactRepository_Add(t *testing.T) {
 
 		require.ErrorIs(t, contacts.Add(ctx, c), outbound.ErrPersistence)
 
-		found, err := contacts.GetByUserID(ctx, owner.ID())
+		found, err := contacts.GetByUserID(ctx, owner.ID(), outbound.Page{Limit: 100})
 		require.NoError(t, err)
 		require.Empty(t, found)
 	})
@@ -85,7 +85,7 @@ func TestContactRepository_GetByUserID(t *testing.T) {
 	t.Run("empty list", func(t *testing.T) {
 		owner := saveTestUser(t, ctx, users, "empty-1", "empty1@example.com")
 
-		found, err := contacts.GetByUserID(ctx, owner.ID())
+		found, err := contacts.GetByUserID(ctx, owner.ID(), outbound.Page{Limit: 100})
 
 		require.NoError(t, err)
 		require.Empty(t, found)
@@ -100,19 +100,19 @@ func TestContactRepository_GetByUserID(t *testing.T) {
 		require.NoError(t, contacts.Add(ctx, newTestContact(t, owner.ID(), zoe.ID())))
 		require.NoError(t, contacts.Add(ctx, newTestContact(t, owner.ID(), amy.ID())))
 
-		found, err := contacts.GetByUserID(ctx, owner.ID())
+		found, err := contacts.GetByUserID(ctx, owner.ID(), outbound.Page{Limit: 100})
 		require.NoError(t, err)
 		require.Len(t, found, 2)
 		requireSameUser(t, amy, found[0])
 		requireSameUser(t, zoe, found[1])
 
-		otherContacts, err := contacts.GetByUserID(ctx, outsider.ID())
+		otherContacts, err := contacts.GetByUserID(ctx, outsider.ID(), outbound.Page{Limit: 100})
 		require.NoError(t, err)
 		require.Empty(t, otherContacts)
 	})
 
 	t.Run("nonexistent owner has no contacts", func(t *testing.T) {
-		found, err := contacts.GetByUserID(ctx, "missing-owner")
+		found, err := contacts.GetByUserID(ctx, "missing-owner", outbound.Page{Limit: 100})
 
 		require.NoError(t, err)
 		require.Empty(t, found)
@@ -130,7 +130,7 @@ func TestContactRepository_Remove(t *testing.T) {
 	require.NoError(t, contacts.Remove(ctx, "friend", "owner"))
 
 	for _, id := range []user.ID{"owner", "friend"} {
-		got, err := contacts.GetByUserID(ctx, id)
+		got, err := contacts.GetByUserID(ctx, id, outbound.Page{Limit: 100})
 		require.NoError(t, err)
 		require.Empty(t, got)
 	}

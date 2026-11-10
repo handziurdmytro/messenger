@@ -10,6 +10,7 @@ import (
 	"github.com/handziurdmytro/messenger/pkg/pgkit/pgtest"
 	db "github.com/handziurdmytro/messenger/user-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
+	"github.com/handziurdmytro/messenger/user-service/internal/port/outbound"
 )
 
 var testCreatedAt = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -207,7 +208,7 @@ func TestUserRepository_Search(t *testing.T) {
 	require.NoError(t, users.Update(ctx, charlie))
 
 	t.Run("email substring case insensitive", func(t *testing.T) {
-		found, err := users.Search(ctx, "BOB@EXAMPLE", 10)
+		found, err := users.Search(ctx, "BOB@EXAMPLE", outbound.Page{Limit: 10})
 
 		require.NoError(t, err)
 		require.Len(t, found, 1)
@@ -215,7 +216,7 @@ func TestUserRepository_Search(t *testing.T) {
 	})
 
 	t.Run("display name substring case insensitive", func(t *testing.T) {
-		found, err := users.Search(ctx, "COOPER", 10)
+		found, err := users.Search(ctx, "COOPER", outbound.Page{Limit: 10})
 
 		require.NoError(t, err)
 		require.Len(t, found, 1)
@@ -223,7 +224,7 @@ func TestUserRepository_Search(t *testing.T) {
 	})
 
 	t.Run("matches email and display name", func(t *testing.T) {
-		found, err := users.Search(ctx, "alice", 10)
+		found, err := users.Search(ctx, "alice", outbound.Page{Limit: 10})
 
 		require.NoError(t, err)
 		require.Len(t, found, 2)
@@ -232,14 +233,32 @@ func TestUserRepository_Search(t *testing.T) {
 	})
 
 	t.Run("respects limit", func(t *testing.T) {
-		found, err := users.Search(ctx, "example.com", 2)
+		found, err := users.Search(ctx, "example.com", outbound.Page{Limit: 2})
 
 		require.NoError(t, err)
 		require.Len(t, found, 2)
 	})
 
+	t.Run("pages are ordered by display name", func(t *testing.T) {
+		first, err := users.Search(ctx, "example.com", outbound.Page{Limit: 2})
+		require.NoError(t, err)
+		second, err := users.Search(ctx, "example.com", outbound.Page{Limit: 2, Offset: 2})
+		require.NoError(t, err)
+
+		require.Len(t, first, 2)
+		require.Len(t, second, 1)
+		requireSameUser(t, charlie, first[0])
+		requireSameUser(t, alice, first[1])
+		requireSameUser(t, bob, second[0])
+	})
+
+	t.Run("rejects invalid page", func(t *testing.T) {
+		_, err := users.Search(ctx, "example.com", outbound.Page{Limit: 0})
+		require.Error(t, err)
+	})
+
 	t.Run("no matches", func(t *testing.T) {
-		found, err := users.Search(ctx, "no-such-user", 10)
+		found, err := users.Search(ctx, "no-such-user", outbound.Page{Limit: 10})
 
 		require.NoError(t, err)
 		require.Empty(t, found)
@@ -265,7 +284,7 @@ func TestUserRepository_MarkDeleted(t *testing.T) {
 	require.Empty(t, found.Email().String())
 	require.WithinDuration(t, deletedAt, found.DeletedAt(), time.Microsecond)
 
-	friendContacts, err := contacts.GetByUserID(ctx, "friend")
+	friendContacts, err := contacts.GetByUserID(ctx, "friend", outbound.Page{Limit: 100})
 	require.NoError(t, err)
 	require.Empty(t, friendContacts)
 
@@ -273,7 +292,7 @@ func TestUserRepository_MarkDeleted(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, found.IsDeleted())
 
-	searched, err := users.Search(ctx, "owner", 10)
+	searched, err := users.Search(ctx, "owner", outbound.Page{Limit: 10})
 	require.NoError(t, err)
 	require.Empty(t, searched)
 

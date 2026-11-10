@@ -53,7 +53,8 @@ FROM users
 WHERE deleted_at IS NULL
   AND (display_name ILIKE '%' || sqlc.arg(query)::text || '%'
     OR email ILIKE '%' || sqlc.arg(query)::text || '%')
-LIMIT sqlc.arg(limit_count);
+ORDER BY display_name, id
+LIMIT sqlc.arg(limit_count) OFFSET sqlc.arg(offset_count);
 
 -- name: MarkUserDeleted :execrows
 WITH removed_contacts AS (

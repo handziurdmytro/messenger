@@ -24,7 +24,7 @@ func (uc *SearchUsersUseCase) Execute(ctx context.Context, query string, limit i
 		limit = 20
 	}
 
-	users, err := uc.users.Search(ctx, query, limit)
+	users, err := uc.users.Search(ctx, query, outbound.Page{Limit: limit})
 	if err != nil {
 		return nil, fmt.Errorf("search users: %w", err)
 	}

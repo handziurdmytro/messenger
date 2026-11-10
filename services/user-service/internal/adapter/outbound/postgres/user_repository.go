@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/jackc/pgx/v5"
 
@@ -102,12 +101,13 @@ func (r *UserRepository) Update(ctx context.Context, u user.User) error {
 	return nil
 }
 
-func (r *UserRepository) Search(ctx context.Context, query string, limit int) ([]user.User, error) {
-	if limit <= 0 || limit > math.MaxInt32 {
-		return nil, fmt.Errorf("search users: invalid limit %d", limit)
+func (r *UserRepository) Search(ctx context.Context, query string, page outbound.Page) ([]user.User, error) {
+	limit, offset, err := pageBounds(page)
+	if err != nil {
+		return nil, fmt.Errorf("search users: %w", err)
 	}
 
-	rows, err := r.q.SearchUsers(ctx, db.SearchUsersParams{Query: query, LimitCount: int32(limit)})
+	rows, err := r.q.SearchUsers(ctx, db.SearchUsersParams{Query: query, LimitCount: limit, OffsetCount: offset})
 	if err != nil {
 		return nil, errkit.Wrap(outbound.ErrPersistence, "search users", err)
 	}

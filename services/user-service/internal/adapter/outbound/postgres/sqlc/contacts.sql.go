@@ -45,11 +45,18 @@ FROM users u
          INNER JOIN contacts c ON u.id = c.contact_id
 WHERE c.user_id = $1
   AND u.deleted_at IS NULL
-ORDER BY u.display_name ASC
+ORDER BY u.display_name, u.id
+LIMIT $3 OFFSET $2
 `
 
-func (q *Queries) GetContactsByUserID(ctx context.Context, userID string) ([]User, error) {
-	rows, err := q.db.Query(ctx, getContactsByUserID, userID)
+type GetContactsByUserIDParams struct {
+	UserID      string `json:"user_id"`
+	OffsetCount int32  `json:"offset_count"`
+	LimitCount  int32  `json:"limit_count"`
+}
+
+func (q *Queries) GetContactsByUserID(ctx context.Context, arg GetContactsByUserIDParams) ([]User, error) {
+	rows, err := q.db.Query(ctx, getContactsByUserID, arg.UserID, arg.OffsetCount, arg.LimitCount)
 	if err != nil {
 		return nil, err
 	}

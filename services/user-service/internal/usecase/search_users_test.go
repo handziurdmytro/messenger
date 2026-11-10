@@ -32,7 +32,7 @@ func TestSearchUsersUseCase_Execute(t *testing.T) {
 			want:  []user.User{u},
 			setupMocks: func(users *MockUserRepository) {
 				users.EXPECT().
-					Search(mock.Anything, "test", 10).
+					Search(mock.Anything, "test", outbound.Page{Limit: 10}).
 					Return([]user.User{u}, nil).
 					Once()
 			},
@@ -44,7 +44,7 @@ func TestSearchUsersUseCase_Execute(t *testing.T) {
 			want:  []user.User{},
 			setupMocks: func(users *MockUserRepository) {
 				users.EXPECT().
-					Search(mock.Anything, "missing", 10).
+					Search(mock.Anything, "missing", outbound.Page{Limit: 10}).
 					Return([]user.User{}, nil).
 					Once()
 			},
@@ -62,7 +62,7 @@ func TestSearchUsersUseCase_Execute(t *testing.T) {
 			want:  []user.User{u},
 			setupMocks: func(users *MockUserRepository) {
 				users.EXPECT().
-					Search(mock.Anything, "test", 20).
+					Search(mock.Anything, "test", outbound.Page{Limit: 20}).
 					Return([]user.User{u}, nil).
 					Once()
 			},
@@ -74,7 +74,7 @@ func TestSearchUsersUseCase_Execute(t *testing.T) {
 			want:  []user.User{u},
 			setupMocks: func(users *MockUserRepository) {
 				users.EXPECT().
-					Search(mock.Anything, "test", 20).
+					Search(mock.Anything, "test", outbound.Page{Limit: 20}).
 					Return([]user.User{u}, nil).
 					Once()
 			},
@@ -86,7 +86,7 @@ func TestSearchUsersUseCase_Execute(t *testing.T) {
 			wantErr: outbound.ErrPersistence,
 			setupMocks: func(users *MockUserRepository) {
 				users.EXPECT().
-					Search(mock.Anything, "test", 10).
+					Search(mock.Anything, "test", outbound.Page{Limit: 10}).
 					Return(nil, outbound.ErrPersistence).
 					Once()
 			},

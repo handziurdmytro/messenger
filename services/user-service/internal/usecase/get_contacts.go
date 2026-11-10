@@ -17,7 +17,7 @@ func NewGetContactsUseCase(contacts outbound.ContactRepository) *GetContactsUseC
 }
 
 func (uc *GetContactsUseCase) Execute(ctx context.Context, userID user.ID) ([]user.User, error) {
-	contacts, err := uc.contacts.GetByUserID(ctx, userID)
+	contacts, err := uc.contacts.GetByUserID(ctx, userID, outbound.Page{Limit: 100})
 	if err != nil {
 		return nil, fmt.Errorf("get contacts: %w", err)
 	}

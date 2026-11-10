@@ -9,6 +9,7 @@ import (
 
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/contact"
 	"github.com/handziurdmytro/messenger/user-service/internal/domain/user"
+	"github.com/handziurdmytro/messenger/user-service/internal/port/outbound"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -106,8 +107,8 @@ func (_c *MockContactRepository_Add_Call) RunAndReturn(run func(ctx context.Cont
 }
 
 // GetByUserID provides a mock function for the type MockContactRepository
-func (_mock *MockContactRepository) GetByUserID(ctx context.Context, userID user.ID) ([]user.User, error) {
-	ret := _mock.Called(ctx, userID)
+func (_mock *MockContactRepository) GetByUserID(ctx context.Context, userID user.ID, page outbound.Page) ([]user.User, error) {
+	ret := _mock.Called(ctx, userID, page)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetByUserID")
@@ -115,18 +116,18 @@ func (_mock *MockContactRepository) GetByUserID(ctx context.Context, userID user
 
 	var r0 []user.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, user.ID) ([]user.User, error)); ok {
-		return returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, user.ID, outbound.Page) ([]user.User, error)); ok {
+		return returnFunc(ctx, userID, page)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, user.ID) []user.User); ok {
-		r0 = returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, user.ID, outbound.Page) []user.User); ok {
+		r0 = returnFunc(ctx, userID, page)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]user.User)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, user.ID) error); ok {
-		r1 = returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, user.ID, outbound.Page) error); ok {
+		r1 = returnFunc(ctx, userID, page)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -141,11 +142,12 @@ type MockContactRepository_GetByUserID_Call struct {
 // GetByUserID is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userID user.ID
-func (_e *MockContactRepository_Expecter) GetByUserID(ctx any, userID any) *MockContactRepository_GetByUserID_Call {
-	return &MockContactRepository_GetByUserID_Call{Call: _e.mock.On("GetByUserID", ctx, userID)}
+//   - page outbound.Page
+func (_e *MockContactRepository_Expecter) GetByUserID(ctx any, userID any, page any) *MockContactRepository_GetByUserID_Call {
+	return &MockContactRepository_GetByUserID_Call{Call: _e.mock.On("GetByUserID", ctx, userID, page)}
 }
 
-func (_c *MockContactRepository_GetByUserID_Call) Run(run func(ctx context.Context, userID user.ID)) *MockContactRepository_GetByUserID_Call {
+func (_c *MockContactRepository_GetByUserID_Call) Run(run func(ctx context.Context, userID user.ID, page outbound.Page)) *MockContactRepository_GetByUserID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -155,9 +157,14 @@ func (_c *MockContactRepository_GetByUserID_Call) Run(run func(ctx context.Conte
 		if args[1] != nil {
 			arg1 = args[1].(user.ID)
 		}
+		var arg2 outbound.Page
+		if args[2] != nil {
+			arg2 = args[2].(outbound.Page)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -168,7 +175,7 @@ func (_c *MockContactRepository_GetByUserID_Call) Return(users []user.User, err 
 	return _c
 }
 
-func (_c *MockContactRepository_GetByUserID_Call) RunAndReturn(run func(ctx context.Context, userID user.ID) ([]user.User, error)) *MockContactRepository_GetByUserID_Call {
+func (_c *MockContactRepository_GetByUserID_Call) RunAndReturn(run func(ctx context.Context, userID user.ID, page outbound.Page) ([]user.User, error)) *MockContactRepository_GetByUserID_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -521,8 +528,8 @@ func (_c *MockUserRepository_Save_Call) RunAndReturn(run func(ctx context.Contex
 }
 
 // Search provides a mock function for the type MockUserRepository
-func (_mock *MockUserRepository) Search(ctx context.Context, query string, limit int) ([]user.User, error) {
-	ret := _mock.Called(ctx, query, limit)
+func (_mock *MockUserRepository) Search(ctx context.Context, query string, page outbound.Page) ([]user.User, error) {
+	ret := _mock.Called(ctx, query, page)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Search")
@@ -530,18 +537,18 @@ func (_mock *MockUserRepository) Search(ctx context.Context, query string, limit
 
 	var r0 []user.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int) ([]user.User, error)); ok {
-		return returnFunc(ctx, query, limit)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, outbound.Page) ([]user.User, error)); ok {
+		return returnFunc(ctx, query, page)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int) []user.User); ok {
-		r0 = returnFunc(ctx, query, limit)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, outbound.Page) []user.User); ok {
+		r0 = returnFunc(ctx, query, page)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]user.User)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
-		r1 = returnFunc(ctx, query, limit)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, outbound.Page) error); ok {
+		r1 = returnFunc(ctx, query, page)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -556,12 +563,12 @@ type MockUserRepository_Search_Call struct {
 // Search is a helper method to define mock.On call
 //   - ctx context.Context
 //   - query string
-//   - limit int
-func (_e *MockUserRepository_Expecter) Search(ctx any, query any, limit any) *MockUserRepository_Search_Call {
-	return &MockUserRepository_Search_Call{Call: _e.mock.On("Search", ctx, query, limit)}
+//   - page outbound.Page
+func (_e *MockUserRepository_Expecter) Search(ctx any, query any, page any) *MockUserRepository_Search_Call {
+	return &MockUserRepository_Search_Call{Call: _e.mock.On("Search", ctx, query, page)}
 }
 
-func (_c *MockUserRepository_Search_Call) Run(run func(ctx context.Context, query string, limit int)) *MockUserRepository_Search_Call {
+func (_c *MockUserRepository_Search_Call) Run(run func(ctx context.Context, query string, page outbound.Page)) *MockUserRepository_Search_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -571,9 +578,9 @@ func (_c *MockUserRepository_Search_Call) Run(run func(ctx context.Context, quer
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 int
+		var arg2 outbound.Page
 		if args[2] != nil {
-			arg2 = args[2].(int)
+			arg2 = args[2].(outbound.Page)
 		}
 		run(
 			arg0,
@@ -589,7 +596,7 @@ func (_c *MockUserRepository_Search_Call) Return(users []user.User, err error) *
 	return _c
 }
 
-func (_c *MockUserRepository_Search_Call) RunAndReturn(run func(ctx context.Context, query string, limit int) ([]user.User, error)) *MockUserRepository_Search_Call {
+func (_c *MockUserRepository_Search_Call) RunAndReturn(run func(ctx context.Context, query string, page outbound.Page) ([]user.User, error)) *MockUserRepository_Search_Call {
 	_c.Call.Return(run)
 	return _c
 }

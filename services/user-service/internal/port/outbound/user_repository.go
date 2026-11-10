@@ -12,5 +12,5 @@ type UserRepository interface {
 	FindByIDs(ctx context.Context, ids []user.ID) ([]user.User, error)
 	Update(ctx context.Context, u user.User) error
 	MarkDeleted(ctx context.Context, u user.User) error
-	Search(ctx context.Context, query string, limit int) ([]user.User, error)
+	Search(ctx context.Context, query string, page Page) ([]user.User, error)
 }
