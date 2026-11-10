@@ -24,8 +24,12 @@ func (uc *AddContactUseCase) Execute(ctx context.Context, userID, contactID user
 	if err != nil {
 		return err
 	}
-	if _, err := uc.users.FindByID(ctx, contactID); err != nil {
+	target, err := uc.users.FindByID(ctx, contactID)
+	if err != nil {
 		return fmt.Errorf("check contact exists: %w", err)
+	}
+	if target.IsDeleted() {
+		return fmt.Errorf("check contact exists: %w", user.ErrNotFound)
 	}
 	if err := uc.contacts.Add(ctx, c); err != nil {
 		return fmt.Errorf("add contact: %w", err)
