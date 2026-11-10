@@ -28,6 +28,7 @@ func NewServer(
 	mux.HandleFunc("GET /search", h.SearchUsers)
 	mux.HandleFunc("POST /me/contacts", h.AddContact)
 	mux.HandleFunc("GET /me/contacts", h.GetContacts)
+	mux.HandleFunc("DELETE /me/contacts/{id}", h.RemoveContact)
 
 	handlerWithLogger := logger.HTTPMiddleware(baseLogger)(mux)
 

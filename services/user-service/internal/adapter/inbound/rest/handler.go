@@ -28,6 +28,10 @@ type AddContactUseCase interface {
 	Execute(ctx context.Context, userID, contactID user.ID) error
 }
 
+type RemoveContactUseCase interface {
+	Execute(ctx context.Context, userID, contactID user.ID) error
+}
+
 type GetContactsUseCase interface {
 	Execute(ctx context.Context, userID user.ID) ([]user.User, error)
 }
@@ -38,6 +42,7 @@ type Handler struct {
 	searchUsers   SearchUsersUseCase
 	addContact    AddContactUseCase
 	getContacts   GetContactsUseCase
+	removeContact RemoveContactUseCase
 }
 
 type Services struct {
@@ -46,6 +51,7 @@ type Services struct {
 	SearchUsers   SearchUsersUseCase
 	AddContact    AddContactUseCase
 	GetContacts   GetContactsUseCase
+	RemoveContact RemoveContactUseCase
 }
 
 func NewHandler(services Services) *Handler {
@@ -55,6 +61,7 @@ func NewHandler(services Services) *Handler {
 		searchUsers:   services.SearchUsers,
 		addContact:    services.AddContact,
 		getContacts:   services.GetContacts,
+		removeContact: services.RemoveContact,
 	}
 }
 
@@ -248,4 +255,34 @@ func (h *Handler) GetContacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) RemoveContact(w http.ResponseWriter, r *http.Request) {
+	log := logger.WithComponent(logger.FromContext(r.Context()), "user-rest")
+
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		log.Warn("remove_contact: missing user id")
+		writeError(w, http.StatusUnauthorized, "missing user id")
+		return
+	}
+
+	contactID := r.PathValue("id")
+	err := h.removeContact.Execute(r.Context(), user.ID(userID), user.ID(contactID))
+	if err != nil {
+		switch {
+		case errors.Is(err, contact.ErrContactIDEmpty):
+			writeError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, contact.ErrNotFound):
+			log.Info("remove_contact: not found", logger.KeyUserID, userID, "contact_id", contactID)
+			writeError(w, http.StatusNotFound, "contact not found")
+		default:
+			log.Error("remove_contact: failed", logger.KeyUserID, userID, logger.KeyError, err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+		}
+		return
+	}
+
+	log.Info("remove_contact: succeeded", logger.KeyUserID, userID, "contact_id", contactID)
+	w.WriteHeader(http.StatusNoContent)
 }
