@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/require"
+
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
 	"github.com/handziurdmytro/messenger/chat-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/pgkit/pgtest"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/stretchr/testify/require"
 )
 
 func newTestChatRepository(t *testing.T) (*ChatRepository, *pgxpool.Pool) {

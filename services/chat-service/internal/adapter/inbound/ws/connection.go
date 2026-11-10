@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
 )
 

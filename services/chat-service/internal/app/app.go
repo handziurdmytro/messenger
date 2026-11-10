@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
+
 	natsinbound "github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/nats"
 	"github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/rest"
 	"github.com/handziurdmytro/messenger/chat-service/internal/adapter/inbound/ws"
@@ -16,8 +19,6 @@ import (
 	"github.com/handziurdmytro/messenger/pkg/errkit"
 	"github.com/handziurdmytro/messenger/pkg/natskit"
 	"github.com/handziurdmytro/messenger/pkg/pgkit"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/sync/errgroup"
 )
 
 var ErrStartup = errors.New("application startup failed")

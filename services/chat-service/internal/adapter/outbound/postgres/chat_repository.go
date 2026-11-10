@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/handziurdmytro/messenger/chat-service/internal/usecase"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/handziurdmytro/messenger/chat-service/internal/usecase"
 
 	db "github.com/handziurdmytro/messenger/chat-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"

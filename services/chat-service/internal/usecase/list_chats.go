@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+
 	"github.com/handziurdmytro/messenger/chat-service/internal/domain/chat"
 )
 

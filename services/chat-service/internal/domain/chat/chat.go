@@ -48,6 +48,8 @@ func Restore(id ID, chatType Type, participants []UserID, createdAt time.Time) (
 		if err := validatePrivateParticipants(participants[0], participants[1]); err != nil {
 			return Chat{}, err
 		}
+	case TypeGroup:
+		return Chat{}, ErrUnsupportedChatType
 	default:
 		return Chat{}, ErrUnsupportedChatType
 	}

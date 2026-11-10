@@ -2,11 +2,14 @@ package chat
 
 import (
 	"github.com/google/uuid"
+
 	"github.com/handziurdmytro/messenger/pkg/errkit"
 )
 
-type ID string
-type UserID string
+type (
+	ID     string
+	UserID string
+)
 
 func NewID() ID {
 	return ID(uuid.NewString())
