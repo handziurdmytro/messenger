@@ -10,4 +10,5 @@ type TokenRepository interface {
 	SaveRefresh(ctx context.Context, entry auth.RefreshEntry) error
 	FindRefresh(ctx context.Context, token auth.RefreshToken) (auth.RefreshEntry, error)
 	DeleteRefresh(ctx context.Context, token auth.RefreshToken) error
+	DeleteAllRefresh(ctx context.Context, userID auth.UserID) error
 }

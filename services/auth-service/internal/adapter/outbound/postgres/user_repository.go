@@ -87,3 +87,18 @@ func (r *UserRepository) FindByID(
 		CreatedAt:    row.CreatedAt,
 	}, nil
 }
+
+func (r *UserRepository) UpdatePassword(ctx context.Context, id auth.UserID, hash auth.PasswordHash) error {
+	rows, err := r.q.UpdateUserPasswordHash(ctx, db.UpdateUserPasswordHashParams{
+		ID:           string(id),
+		PasswordHash: string(hash),
+	})
+	if err != nil {
+		return errkit.Wrap(outbound.ErrPersistence, "update user password", err)
+	}
+	if rows == 0 {
+		return auth.ErrUserNotFound
+	}
+
+	return nil
+}

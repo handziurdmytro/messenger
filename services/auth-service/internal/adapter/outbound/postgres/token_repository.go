@@ -81,3 +81,11 @@ func (r *TokenRepository) DeleteRefresh(
 
 	return nil
 }
+
+func (r *TokenRepository) DeleteAllRefresh(ctx context.Context, userID auth.UserID) error {
+	if err := r.q.DeleteRefreshTokensByUserID(ctx, string(userID)); err != nil {
+		return errkit.Wrap(outbound.ErrPersistence, "delete user refresh tokens", err)
+	}
+
+	return nil
+}
