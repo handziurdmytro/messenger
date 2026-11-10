@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/handziurdmytro/messenger/pkg/errkit"
 	"github.com/nats-io/nats.go/jetstream"
+
+	"github.com/handziurdmytro/messenger/pkg/errkit"
 )
 
 const subjectSendMessageDLQ = "message.messages.send.dlq"

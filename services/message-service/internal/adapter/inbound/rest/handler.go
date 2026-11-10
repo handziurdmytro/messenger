@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/handziurdmytro/messenger/message-service/internal/domain/message"
 	"github.com/handziurdmytro/messenger/message-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/logger"
@@ -112,7 +113,7 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 	if r.MultipartForm != nil {
-		defer r.MultipartForm.RemoveAll()
+		defer func() { _ = r.MultipartForm.RemoveAll() }()
 	}
 
 	key := uuid.NewString()

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
+
 	"github.com/handziurdmytro/messenger/message-service/internal/domain/message"
 	"github.com/handziurdmytro/messenger/message-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
@@ -256,7 +257,7 @@ func contentHash(msg message.Message) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func locationFromRow(row map[string]any) (int, time.Time, string, error) {
+func locationFromRow(row map[string]any) (bucketID int, createdAt time.Time, requestHash string, err error) {
 	b, okB := row["bucket"].(int)
 	at, okAt := row["created_at"].(time.Time)
 	hash, okH := row["request_hash"].(string)

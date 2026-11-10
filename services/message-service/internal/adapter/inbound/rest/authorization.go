@@ -21,7 +21,7 @@ func authorizeChat(baseURL string, next http.HandlerFunc) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid chat ID")
 			return
 		}
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, baseURL+"/chats/"+url.PathEscape(chatID), nil)
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, baseURL+"/chats/"+url.PathEscape(chatID), http.NoBody)
 		if err != nil {
 			writeError(w, http.StatusServiceUnavailable, "authorization unavailable")
 			return

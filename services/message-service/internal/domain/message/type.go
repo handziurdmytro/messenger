@@ -30,6 +30,8 @@ func (t Type) CanEdit() bool {
 	switch t {
 	case TypeText, TypeImage, TypeMusic, TypeVideo, TypeFile:
 		return true
+	case TypeAudioMessage, TypeVideoMessage, TypeSystem:
+		return false
 	default:
 		return false
 	}

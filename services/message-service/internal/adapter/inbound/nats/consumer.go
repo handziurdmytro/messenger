@@ -7,10 +7,11 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/handziurdmytro/messenger/message-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/contracts/message"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
-	"github.com/nats-io/nats.go/jetstream"
 )
 
 const retryDelay = 5 * time.Second
