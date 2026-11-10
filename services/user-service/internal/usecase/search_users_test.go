@@ -99,7 +99,7 @@ func TestSearchUsersUseCase_Execute(t *testing.T) {
 			tt.setupMocks(users)
 
 			uc := NewSearchUsersUseCase(users)
-			got, err := uc.Execute(context.Background(), tt.query, tt.limit)
+			got, err := uc.Execute(context.Background(), tt.query, tt.limit, 0)
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)

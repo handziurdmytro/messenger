@@ -56,7 +56,7 @@ func TestServer_Routes(t *testing.T) {
 			path:   "/search?q=alice",
 			setupMocks: func(_ *MockGetProfileUseCase, _ *MockUpdateProfileUseCase, searchUsers *MockSearchUsersUseCase, _ *MockAddContactUseCase, _ *MockGetContactsUseCase) {
 				searchUsers.EXPECT().
-					Execute(mock.Anything, "alice", 20).
+					Execute(mock.Anything, "alice", 20, 0).
 					Return([]user.User{}, nil).
 					Once()
 			},
@@ -79,7 +79,7 @@ func TestServer_Routes(t *testing.T) {
 			path:   "/me/contacts",
 			setupMocks: func(_ *MockGetProfileUseCase, _ *MockUpdateProfileUseCase, _ *MockSearchUsersUseCase, _ *MockAddContactUseCase, getContacts *MockGetContactsUseCase) {
 				getContacts.EXPECT().
-					Execute(mock.Anything, user.ID("user-1")).
+					Execute(mock.Anything, user.ID("user-1"), 0, 0).
 					Return([]user.User{}, nil).
 					Once()
 			},

@@ -16,7 +16,7 @@ func NewSearchUsersUseCase(users outbound.UserRepository) *SearchUsersUseCase {
 	return &SearchUsersUseCase{users: users}
 }
 
-func (uc *SearchUsersUseCase) Execute(ctx context.Context, query string, limit int) ([]user.User, error) {
+func (uc *SearchUsersUseCase) Execute(ctx context.Context, query string, limit, offset int) ([]user.User, error) {
 	if query == "" {
 		return nil, nil
 	}
@@ -24,7 +24,7 @@ func (uc *SearchUsersUseCase) Execute(ctx context.Context, query string, limit i
 		limit = 20
 	}
 
-	users, err := uc.users.Search(ctx, query, outbound.Page{Limit: limit})
+	users, err := uc.users.Search(ctx, query, outbound.Page{Limit: limit, Offset: max(offset, 0)})
 	if err != nil {
 		return nil, fmt.Errorf("search users: %w", err)
 	}

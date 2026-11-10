@@ -61,7 +61,7 @@ func TestGetContactsUseCase_Execute(t *testing.T) {
 			tt.setupMocks(contacts)
 
 			uc := NewGetContactsUseCase(contacts)
-			got, err := uc.Execute(context.Background(), "owner-1")
+			got, err := uc.Execute(context.Background(), "owner-1", 0, 0)
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)

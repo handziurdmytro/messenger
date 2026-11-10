@@ -27,7 +27,7 @@ type UpdateProfileUseCase interface {
 }
 
 type SearchUsersUseCase interface {
-	Execute(ctx context.Context, query string, limit int) ([]user.User, error)
+	Execute(ctx context.Context, query string, limit, offset int) ([]user.User, error)
 }
 
 type AddContactUseCase interface {
@@ -39,7 +39,7 @@ type RemoveContactUseCase interface {
 }
 
 type GetContactsUseCase interface {
-	Execute(ctx context.Context, userID user.ID) ([]user.User, error)
+	Execute(ctx context.Context, userID user.ID, limit, offset int) ([]user.User, error)
 }
 
 type Handler struct {
@@ -172,7 +172,13 @@ func (h *Handler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query().Get("q")
 
-	users, err := h.searchUsers.Execute(r.Context(), query, 20)
+	limit, offset, err := parsePage(r, defaultSearchLimit)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	users, err := h.searchUsers.Execute(r.Context(), query, limit, offset)
 	if err != nil {
 		log.Error("search_users: failed", "query", query, logger.KeyError, err)
 		writeError(w, http.StatusInternalServerError, "internal error")
@@ -180,13 +186,7 @@ func (h *Handler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info("search_users: succeeded", "query", query, "count", len(users))
-
-	resp := make([]userResponse, len(users))
-	for i, u := range users {
-		resp[i] = toResponse(u)
-	}
-
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, toResponses(users))
 }
 
 type addContactRequest struct {
@@ -249,7 +249,13 @@ func (h *Handler) GetContacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	contacts, err := h.getContacts.Execute(r.Context(), user.ID(userID))
+	limit, offset, err := parsePage(r, 0)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	contacts, err := h.getContacts.Execute(r.Context(), user.ID(userID), limit, offset)
 	if err != nil {
 		log.Error("get_contacts: failed", logger.KeyUserID, userID, logger.KeyError, err)
 		writeError(w, http.StatusInternalServerError, "internal error")
@@ -257,13 +263,7 @@ func (h *Handler) GetContacts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info("get_contacts: succeeded", logger.KeyUserID, userID, "count", len(contacts))
-
-	resp := make([]userResponse, len(contacts))
-	for i, u := range contacts {
-		resp[i] = toResponse(u)
-	}
-
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, toResponses(contacts))
 }
 
 func (h *Handler) RemoveContact(w http.ResponseWriter, r *http.Request) {

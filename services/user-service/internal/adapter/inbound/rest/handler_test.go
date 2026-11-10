@@ -248,7 +248,7 @@ func TestHandler_SearchUsers(t *testing.T) {
 		bob := testUser(t, "user-2", "bob@example.com")
 		searchUsers := NewMockSearchUsersUseCase(t)
 		searchUsers.EXPECT().
-			Execute(mock.Anything, "alice", 20).
+			Execute(mock.Anything, "alice", 20, 0).
 			Return([]user.User{alice, bob}, nil).
 			Once()
 
@@ -267,7 +267,7 @@ func TestHandler_SearchUsers(t *testing.T) {
 	t.Run("empty query", func(t *testing.T) {
 		searchUsers := NewMockSearchUsersUseCase(t)
 		searchUsers.EXPECT().
-			Execute(mock.Anything, "", 20).
+			Execute(mock.Anything, "", 20, 0).
 			Return(nil, nil).
 			Once()
 
@@ -283,7 +283,7 @@ func TestHandler_SearchUsers(t *testing.T) {
 	t.Run("internal error", func(t *testing.T) {
 		searchUsers := NewMockSearchUsersUseCase(t)
 		searchUsers.EXPECT().
-			Execute(mock.Anything, "alice", 20).
+			Execute(mock.Anything, "alice", 20, 0).
 			Return(nil, errors.New("database unavailable")).
 			Once()
 
@@ -425,7 +425,7 @@ func TestHandler_GetContacts(t *testing.T) {
 		bob := testUser(t, "user-3", "bob@example.com")
 		getContacts := NewMockGetContactsUseCase(t)
 		getContacts.EXPECT().
-			Execute(mock.Anything, user.ID("user-1")).
+			Execute(mock.Anything, user.ID("user-1"), 0, 0).
 			Return([]user.User{alice, bob}, nil).
 			Once()
 
@@ -445,7 +445,7 @@ func TestHandler_GetContacts(t *testing.T) {
 	t.Run("empty contacts", func(t *testing.T) {
 		getContacts := NewMockGetContactsUseCase(t)
 		getContacts.EXPECT().
-			Execute(mock.Anything, user.ID("user-1")).
+			Execute(mock.Anything, user.ID("user-1"), 0, 0).
 			Return(nil, nil).
 			Once()
 
@@ -473,7 +473,7 @@ func TestHandler_GetContacts(t *testing.T) {
 	t.Run("internal error", func(t *testing.T) {
 		getContacts := NewMockGetContactsUseCase(t)
 		getContacts.EXPECT().
-			Execute(mock.Anything, user.ID("user-1")).
+			Execute(mock.Anything, user.ID("user-1"), 0, 0).
 			Return(nil, errors.New("database unavailable")).
 			Once()
 

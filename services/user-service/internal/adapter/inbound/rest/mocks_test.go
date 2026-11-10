@@ -363,8 +363,8 @@ func (_m *MockSearchUsersUseCase) EXPECT() *MockSearchUsersUseCase_Expecter {
 }
 
 // Execute provides a mock function for the type MockSearchUsersUseCase
-func (_mock *MockSearchUsersUseCase) Execute(ctx context.Context, query string, limit int) ([]user.User, error) {
-	ret := _mock.Called(ctx, query, limit)
+func (_mock *MockSearchUsersUseCase) Execute(ctx context.Context, query string, limit int, offset int) ([]user.User, error) {
+	ret := _mock.Called(ctx, query, limit, offset)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Execute")
@@ -372,18 +372,18 @@ func (_mock *MockSearchUsersUseCase) Execute(ctx context.Context, query string, 
 
 	var r0 []user.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int) ([]user.User, error)); ok {
-		return returnFunc(ctx, query, limit)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int, int) ([]user.User, error)); ok {
+		return returnFunc(ctx, query, limit, offset)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int) []user.User); ok {
-		r0 = returnFunc(ctx, query, limit)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, int, int) []user.User); ok {
+		r0 = returnFunc(ctx, query, limit, offset)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]user.User)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
-		r1 = returnFunc(ctx, query, limit)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, int, int) error); ok {
+		r1 = returnFunc(ctx, query, limit, offset)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -399,11 +399,12 @@ type MockSearchUsersUseCase_Execute_Call struct {
 //   - ctx context.Context
 //   - query string
 //   - limit int
-func (_e *MockSearchUsersUseCase_Expecter) Execute(ctx any, query any, limit any) *MockSearchUsersUseCase_Execute_Call {
-	return &MockSearchUsersUseCase_Execute_Call{Call: _e.mock.On("Execute", ctx, query, limit)}
+//   - offset int
+func (_e *MockSearchUsersUseCase_Expecter) Execute(ctx any, query any, limit any, offset any) *MockSearchUsersUseCase_Execute_Call {
+	return &MockSearchUsersUseCase_Execute_Call{Call: _e.mock.On("Execute", ctx, query, limit, offset)}
 }
 
-func (_c *MockSearchUsersUseCase_Execute_Call) Run(run func(ctx context.Context, query string, limit int)) *MockSearchUsersUseCase_Execute_Call {
+func (_c *MockSearchUsersUseCase_Execute_Call) Run(run func(ctx context.Context, query string, limit int, offset int)) *MockSearchUsersUseCase_Execute_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -417,10 +418,15 @@ func (_c *MockSearchUsersUseCase_Execute_Call) Run(run func(ctx context.Context,
 		if args[2] != nil {
 			arg2 = args[2].(int)
 		}
+		var arg3 int
+		if args[3] != nil {
+			arg3 = args[3].(int)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -431,7 +437,7 @@ func (_c *MockSearchUsersUseCase_Execute_Call) Return(users []user.User, err err
 	return _c
 }
 
-func (_c *MockSearchUsersUseCase_Execute_Call) RunAndReturn(run func(ctx context.Context, query string, limit int) ([]user.User, error)) *MockSearchUsersUseCase_Execute_Call {
+func (_c *MockSearchUsersUseCase_Execute_Call) RunAndReturn(run func(ctx context.Context, query string, limit int, offset int) ([]user.User, error)) *MockSearchUsersUseCase_Execute_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -671,8 +677,8 @@ func (_m *MockGetContactsUseCase) EXPECT() *MockGetContactsUseCase_Expecter {
 }
 
 // Execute provides a mock function for the type MockGetContactsUseCase
-func (_mock *MockGetContactsUseCase) Execute(ctx context.Context, userID user.ID) ([]user.User, error) {
-	ret := _mock.Called(ctx, userID)
+func (_mock *MockGetContactsUseCase) Execute(ctx context.Context, userID user.ID, limit int, offset int) ([]user.User, error) {
+	ret := _mock.Called(ctx, userID, limit, offset)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Execute")
@@ -680,18 +686,18 @@ func (_mock *MockGetContactsUseCase) Execute(ctx context.Context, userID user.ID
 
 	var r0 []user.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, user.ID) ([]user.User, error)); ok {
-		return returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, user.ID, int, int) ([]user.User, error)); ok {
+		return returnFunc(ctx, userID, limit, offset)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, user.ID) []user.User); ok {
-		r0 = returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, user.ID, int, int) []user.User); ok {
+		r0 = returnFunc(ctx, userID, limit, offset)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]user.User)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, user.ID) error); ok {
-		r1 = returnFunc(ctx, userID)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, user.ID, int, int) error); ok {
+		r1 = returnFunc(ctx, userID, limit, offset)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -706,11 +712,13 @@ type MockGetContactsUseCase_Execute_Call struct {
 // Execute is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userID user.ID
-func (_e *MockGetContactsUseCase_Expecter) Execute(ctx any, userID any) *MockGetContactsUseCase_Execute_Call {
-	return &MockGetContactsUseCase_Execute_Call{Call: _e.mock.On("Execute", ctx, userID)}
+//   - limit int
+//   - offset int
+func (_e *MockGetContactsUseCase_Expecter) Execute(ctx any, userID any, limit any, offset any) *MockGetContactsUseCase_Execute_Call {
+	return &MockGetContactsUseCase_Execute_Call{Call: _e.mock.On("Execute", ctx, userID, limit, offset)}
 }
 
-func (_c *MockGetContactsUseCase_Execute_Call) Run(run func(ctx context.Context, userID user.ID)) *MockGetContactsUseCase_Execute_Call {
+func (_c *MockGetContactsUseCase_Execute_Call) Run(run func(ctx context.Context, userID user.ID, limit int, offset int)) *MockGetContactsUseCase_Execute_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -720,9 +728,19 @@ func (_c *MockGetContactsUseCase_Execute_Call) Run(run func(ctx context.Context,
 		if args[1] != nil {
 			arg1 = args[1].(user.ID)
 		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		var arg3 int
+		if args[3] != nil {
+			arg3 = args[3].(int)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -733,7 +751,7 @@ func (_c *MockGetContactsUseCase_Execute_Call) Return(users []user.User, err err
 	return _c
 }
 
-func (_c *MockGetContactsUseCase_Execute_Call) RunAndReturn(run func(ctx context.Context, userID user.ID) ([]user.User, error)) *MockGetContactsUseCase_Execute_Call {
+func (_c *MockGetContactsUseCase_Execute_Call) RunAndReturn(run func(ctx context.Context, userID user.ID, limit int, offset int) ([]user.User, error)) *MockGetContactsUseCase_Execute_Call {
 	_c.Call.Return(run)
 	return _c
 }
