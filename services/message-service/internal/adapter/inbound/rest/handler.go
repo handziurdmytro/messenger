@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,20 +19,43 @@ import (
 
 const maxUploadBody = usecase.MaxFileSize + (1 << 20)
 
-type Handler struct {
-	history  *usecase.GetHistory
-	get      *usecase.GetMessage
-	upload   *usecase.UploadFile
-	download *usecase.DownloadFile
+type GetHistoryUseCase interface {
+	Execute(ctx context.Context, q usecase.HistoryQuery) ([]message.Message, error)
 }
 
-func NewHandler(
-	history *usecase.GetHistory,
-	get *usecase.GetMessage,
-	upload *usecase.UploadFile,
-	download *usecase.DownloadFile,
-) *Handler {
-	return &Handler{history: history, get: get, upload: upload, download: download}
+type GetMessageUseCase interface {
+	Execute(ctx context.Context, chatID message.ChatID, messageID message.ID) (message.Message, error)
+}
+
+type UploadFileUseCase interface {
+	Execute(ctx context.Context, in usecase.UploadFileInput) error
+}
+
+type DownloadFileUseCase interface {
+	Execute(ctx context.Context, key string) (io.Reader, error)
+}
+
+type Services struct {
+	GetHistory   GetHistoryUseCase
+	GetMessage   GetMessageUseCase
+	UploadFile   UploadFileUseCase
+	DownloadFile DownloadFileUseCase
+}
+
+type Handler struct {
+	history  GetHistoryUseCase
+	get      GetMessageUseCase
+	upload   UploadFileUseCase
+	download DownloadFileUseCase
+}
+
+func NewHandler(services Services) *Handler {
+	return &Handler{
+		history:  services.GetHistory,
+		get:      services.GetMessage,
+		upload:   services.UploadFile,
+		download: services.DownloadFile,
+	}
 }
 
 type messageResponse struct {

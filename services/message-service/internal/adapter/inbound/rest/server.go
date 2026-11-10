@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/handziurdmytro/messenger/message-service/internal/usecase"
 	"github.com/handziurdmytro/messenger/pkg/logger"
 )
 
@@ -18,14 +17,11 @@ type Server struct {
 
 func NewServer(
 	port string,
-	history *usecase.GetHistory,
-	get *usecase.GetMessage,
-	upload *usecase.UploadFile,
-	download *usecase.DownloadFile,
+	services Services,
 	baseLogger *slog.Logger,
 	chatServiceURL string,
 ) *Server {
-	handler := NewHandler(history, get, upload, download)
+	handler := NewHandler(services)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /chats/{chat_id}/messages", authorizeChat(chatServiceURL, handler.GetHistory))
