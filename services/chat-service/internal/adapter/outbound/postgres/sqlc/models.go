@@ -16,11 +16,14 @@ type Chat struct {
 	Type       string      `json:"type"`
 	PrivateKey pgtype.Text `json:"private_key"`
 	CreatedAt  time.Time   `json:"created_at"`
+	Title      pgtype.Text `json:"title"`
 }
 
 type Participant struct {
-	ChatID uuid.UUID `json:"chat_id"`
-	UserID uuid.UUID `json:"user_id"`
+	ChatID   uuid.UUID          `json:"chat_id"`
+	UserID   uuid.UUID          `json:"user_id"`
+	Role     string             `json:"role"`
+	JoinedAt pgtype.Timestamptz `json:"joined_at"`
 }
 
 type UserBlock struct {

@@ -57,9 +57,16 @@ FROM chats
 WHERE id = $1
 `
 
-func (q *Queries) FindChatByID(ctx context.Context, id uuid.UUID) (Chat, error) {
+type FindChatByIDRow struct {
+	ID         uuid.UUID   `json:"id"`
+	Type       string      `json:"type"`
+	PrivateKey pgtype.Text `json:"private_key"`
+	CreatedAt  time.Time   `json:"created_at"`
+}
+
+func (q *Queries) FindChatByID(ctx context.Context, id uuid.UUID) (FindChatByIDRow, error) {
 	row := q.db.QueryRow(ctx, findChatByID, id)
-	var i Chat
+	var i FindChatByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
@@ -76,9 +83,16 @@ WHERE type = 'private'
   AND private_key = $1
 `
 
-func (q *Queries) FindPrivateByParticipants(ctx context.Context, privateKey pgtype.Text) (Chat, error) {
+type FindPrivateByParticipantsRow struct {
+	ID         uuid.UUID   `json:"id"`
+	Type       string      `json:"type"`
+	PrivateKey pgtype.Text `json:"private_key"`
+	CreatedAt  time.Time   `json:"created_at"`
+}
+
+func (q *Queries) FindPrivateByParticipants(ctx context.Context, privateKey pgtype.Text) (FindPrivateByParticipantsRow, error) {
 	row := q.db.QueryRow(ctx, findPrivateByParticipants, privateKey)
-	var i Chat
+	var i FindPrivateByParticipantsRow
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
