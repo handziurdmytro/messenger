@@ -125,5 +125,9 @@ func (r *UserRepository) Search(ctx context.Context, query string, limit int) ([
 }
 
 func toDomainUser(row db.User) (user.User, error) {
+	if row.DeletedAt != nil {
+		return user.RestoreDeleted(user.ID(row.ID), row.CreatedAt, row.UpdatedAt, *row.DeletedAt)
+	}
+
 	return user.Restore(user.ID(row.ID), row.Email, row.DisplayName, row.AvatarUrl, row.CreatedAt, row.UpdatedAt)
 }

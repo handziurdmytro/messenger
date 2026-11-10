@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const DeletedDisplayName = "Deleted account"
+
 type ID string
 
 func (id ID) String() string {
@@ -22,6 +24,7 @@ type User struct {
 	avatarURL   string
 	createdAt   time.Time
 	updatedAt   time.Time
+	deletedAt   time.Time
 }
 
 func New(
@@ -94,10 +97,63 @@ func Restore(
 	}, nil
 }
 
+func RestoreDeleted(
+	id ID,
+	createdAt time.Time,
+	updatedAt time.Time,
+	deletedAt time.Time,
+) (User, error) {
+	if id.IsZero() {
+		return User{}, ErrIDEmpty
+	}
+
+	if createdAt.IsZero() {
+		return User{}, ErrCreatedAtZero
+	}
+
+	if updatedAt.IsZero() {
+		return User{}, ErrUpdatedAtZero
+	}
+
+	if updatedAt.Before(createdAt) || deletedAt.Before(createdAt) {
+		return User{}, ErrInvalidTimestamp
+	}
+
+	return User{
+		id:          id,
+		displayName: DeletedDisplayName,
+		createdAt:   createdAt,
+		updatedAt:   updatedAt,
+		deletedAt:   deletedAt,
+	}, nil
+}
+
+func (u *User) Delete(now time.Time) error {
+	if u.IsDeleted() {
+		return ErrDeleted
+	}
+
+	if now.IsZero() || now.Before(u.createdAt) {
+		return ErrInvalidTimestamp
+	}
+
+	u.email = Email{}
+	u.displayName = DeletedDisplayName
+	u.avatarURL = ""
+	u.updatedAt = now
+	u.deletedAt = now
+
+	return nil
+}
+
 func (u *User) ChangeDisplayName(
 	displayName string,
 	now time.Time,
 ) error {
+	if u.IsDeleted() {
+		return ErrDeleted
+	}
+
 	displayName = strings.TrimSpace(displayName)
 
 	if displayName == "" {
@@ -118,6 +174,10 @@ func (u *User) ChangeAvatarURL(
 	avatarURL string,
 	now time.Time,
 ) error {
+	if u.IsDeleted() {
+		return ErrDeleted
+	}
+
 	if now.IsZero() || now.Before(u.createdAt) {
 		return ErrInvalidTimestamp
 	}
@@ -150,6 +210,14 @@ func (u *User) CreatedAt() time.Time {
 
 func (u *User) UpdatedAt() time.Time {
 	return u.updatedAt
+}
+
+func (u *User) DeletedAt() time.Time {
+	return u.deletedAt
+}
+
+func (u *User) IsDeleted() bool {
+	return !u.deletedAt.IsZero()
 }
 
 func defaultDisplayName(email Email) string {

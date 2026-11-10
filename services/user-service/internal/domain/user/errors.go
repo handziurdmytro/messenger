@@ -13,4 +13,5 @@ var (
 	ErrCreatedAtZero    = errors.New("created at is zero")
 	ErrUpdatedAtZero    = errors.New("updated at is zero")
 	ErrInvalidTimestamp = errors.New("invalid timestamp")
+	ErrDeleted          = errors.New("user is deleted")
 )
