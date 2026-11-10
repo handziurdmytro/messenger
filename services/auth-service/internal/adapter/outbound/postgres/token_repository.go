@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jackc/pgx/v5"
+
 	db "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
-	"github.com/jackc/pgx/v5"
 )
 
 type TokenRepository struct {

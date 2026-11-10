@@ -75,7 +75,7 @@ func NewTokenService(
 ) (*TokenService, error) {
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(privateKeyPEM)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrPrivateKeyInvalid, err)
+		return nil, fmt.Errorf("%w: %w", ErrPrivateKeyInvalid, err)
 	}
 
 	return &TokenService{
@@ -105,7 +105,7 @@ func (s *TokenService) Issue(user User) (TokenPair, RefreshEntry, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	signed, err := token.SignedString(s.privateKey)
 	if err != nil {
-		return TokenPair{}, RefreshEntry{}, fmt.Errorf("%w: %v", ErrTokenIssueFailed, err)
+		return TokenPair{}, RefreshEntry{}, fmt.Errorf("%w: %w", ErrTokenIssueFailed, err)
 	}
 
 	refresh := NewRefreshEntry(user.ID, s.refreshTTL)
@@ -128,7 +128,6 @@ func (s *TokenService) Authenticate(t Token) (Identity, error) {
 		}
 		return s.publicKey, nil
 	})
-
 	if err != nil {
 		switch {
 		case errors.Is(err, jwt.ErrTokenExpired):

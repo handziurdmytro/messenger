@@ -277,6 +277,6 @@ func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("X-User-ID", string(identity.UserID))
+	w.Header().Set("X-User-ID", identity.UserID)
 	w.WriteHeader(http.StatusOK)
 }

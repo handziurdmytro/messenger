@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"time"
 
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+
 	_ "github.com/handziurdmytro/messenger/auth-service/docs"
 	"github.com/handziurdmytro/messenger/pkg/logger"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type Server struct {

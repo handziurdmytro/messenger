@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
-	"github.com/handziurdmytro/messenger/auth-service/internal/usecase"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
+	"github.com/handziurdmytro/messenger/auth-service/internal/usecase"
 )
 
 func testServerLogger() *slog.Logger {

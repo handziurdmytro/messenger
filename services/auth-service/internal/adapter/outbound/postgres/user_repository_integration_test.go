@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	db "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/auth-service/internal/domain/auth"
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
 	"github.com/handziurdmytro/messenger/pkg/pgkit/pgtest"
-	"github.com/stretchr/testify/require"
 )
 
 func TestUserRepository_SaveAndFindByEmail(t *testing.T) {

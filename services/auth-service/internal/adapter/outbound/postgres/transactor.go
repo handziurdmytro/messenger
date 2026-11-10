@@ -3,10 +3,11 @@ package postgres
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	db "github.com/handziurdmytro/messenger/auth-service/internal/adapter/outbound/postgres/sqlc"
 	"github.com/handziurdmytro/messenger/auth-service/internal/port/outbound"
 	"github.com/handziurdmytro/messenger/pkg/errkit"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Transactor struct {
