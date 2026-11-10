@@ -223,6 +223,8 @@ func (h *Handler) handleError(w http.ResponseWriter, r *http.Request, err error)
 		writeError(w, http.StatusNotFound, "chat not found")
 	case errors.Is(err, usecase.ErrForbidden):
 		writeError(w, http.StatusForbidden, "access denied")
+	case errors.Is(err, usecase.ErrBlocked):
+		writeError(w, http.StatusForbidden, "user is blocked")
 	case errors.Is(err, chat.ErrInvalidParticipants),
 		errors.Is(err, chat.ErrInvalidUserID),
 		errors.Is(err, chat.ErrInvalidChatID):

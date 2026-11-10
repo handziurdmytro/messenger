@@ -22,12 +22,14 @@ type MessagePublisher interface {
 
 type SendMessageUseCase struct {
 	repo      ChatRepository
+	blocks    BlockChecker
 	publisher MessagePublisher
 }
 
-func NewSendMessage(repo ChatRepository, publisher MessagePublisher) *SendMessageUseCase {
+func NewSendMessage(repo ChatRepository, blocks BlockChecker, publisher MessagePublisher) *SendMessageUseCase {
 	return &SendMessageUseCase{
 		repo:      repo,
+		blocks:    blocks,
 		publisher: publisher,
 	}
 }
@@ -62,6 +64,17 @@ func (uc *SendMessageUseCase) Execute(ctx context.Context, in SendMessageInput) 
 
 	if !c.HasParticipant(fromUser) {
 		return "", ErrForbidden
+	}
+
+	if c.Type() == chat.TypePrivate {
+		for _, participant := range c.Participants() {
+			if participant == fromUser {
+				continue
+			}
+			if err := ensureNotBlocked(ctx, uc.blocks, fromUser, participant); err != nil {
+				return "", err
+			}
+		}
 	}
 
 	if err := uc.publisher.Publish(ctx, cmd); err != nil {

@@ -83,12 +83,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	chatRepo := postgres.NewChatRepository(pool)
 	blockRepo := postgres.NewBlockRepository(pool)
 
-	createChatUC := usecase.NewCreateChat(chatRepo)
+	createChatUC := usecase.NewCreateChat(chatRepo, blockRepo)
 	getChatUC := usecase.NewGetChat(chatRepo)
 
 	publisher := natskit.NewPublisher(natsClient.JS)
 	messagePublisher := natsoutbound.NewMessagePublisher(publisher)
-	sendMessageUC := usecase.NewSendMessage(chatRepo, messagePublisher)
+	sendMessageUC := usecase.NewSendMessage(chatRepo, blockRepo, messagePublisher)
 
 	registry := ws.NewRegistry()
 	wsHandler := ws.NewHandler(registry, sendMessageUC, logger)

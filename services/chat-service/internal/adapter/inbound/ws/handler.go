@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -131,10 +132,14 @@ func (h *Handler) readLoop(ctx context.Context, client *Connection) {
 				"message_id", incoming.MessageID,
 				"error", err,
 			)
+			reason := "failed to send message"
+			if errors.Is(err, usecase.ErrBlocked) {
+				reason = "user is blocked"
+			}
 			h.respond(client, outgoingResponse{
 				Type:      "error",
 				MessageID: incoming.MessageID,
-				Error:     "failed to send message",
+				Error:     reason,
 			})
 			continue
 		}
